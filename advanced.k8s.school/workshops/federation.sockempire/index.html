@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | Global Sock Empire</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+
+       
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>01. Cluster Federation</h1>
+            <h2>Global Sock Empire</h2>
+            <hr />
+            <h4 style="color:#666;">deploy Sock Shop across regions with cluster federation</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>In this lab, we will take our Sock Shop empire global and deploy the stack to GKE clusters in multiple Google Cloud regions. This will be a team exercise and each member of the team will stand-up and deploy a regional cluster, and another will deploy a federation control plane into a cluster.</p>
+
+<p>To avoid too much complexity, microservices in the Sock Shop that require state will be co-located in each regional cluster. It is the <code>front-end</code> microservice that will use a federated <code>Deployment</code> and <code>Service</code>.</p>
+
+<h3 id="step-1-choose-a-region-and-provision-a-gke-cluster">step 1 - choose a region and provision a GKE cluster</h3>
+
+<p>The Sock Shop should be available globally in the following Google Cloud regions, to meet the anticipated worldwide demand for funky socks:</p>
+
+<ul>
+<li>Europe: europe-west2</li>
+<li>US (East Coast): us-east1</li>
+<li>Asia: asia-east1</li>
+</ul>
+
+<p>Note: many other regions exist (see <a href="https://cloud.google.com/compute/docs/regions-zones/regions-zones">Regions and Zones</a>), but we&rsquo;ve picked these specifically and will load test against these.</p>
+
+<p>With your team, decide who will deploy each cluster. The GKE clusters should be meet the following specification:</p>
+
+<ul>
+<li>standard 3 nodes of type <code>n1-standard-1</code>)</li>
+<li>all Sock Shop microservices deployed - bar the <code>front-end</code></li>
+<li>ensure access from the federation control plane (which may be hosted by someone else in your team)</li>
+</ul>
+
+<p>With the latter, we recommend adding the team member that will provision the federated control plane to your project as a Container Engine Cluster Admin. Other options may exist that you could explore together instead.</p>
+
+<h3 id="step-2-pick-a-sub-domain-and-add-dns-zone">step 2 - pick a sub-domain and add DNS zone</h3>
+
+<p>If you own a domain and have administrative control of the DNS, create a sub-domain for the Sock Shop. This sub-domain will be used for the federation service discovery and should be delegated to Google DNS. To do this, add the sub-domain as a DNS zone to Google Cloud DNS in the project that has deployed the federation control plane cluster. For example, for <code>group1.socks.workshop.jetstack.net</code>:</p>
+
+<pre><code class="language-bash">$ gcloud dns managed-zones create fed-socks \
+  --description &quot;Federated Sock Shop Zone&quot; \
+  --dns-name group1.socks.workshop.jetstack.net
+</code></pre>
+
+<h3 id="step-3-provision-a-cluster-to-host-the-federation-control-plane">step 3 - provision a cluster to host the federation control plane</h3>
+
+<p>One member of the team should provision a cluster (the <strong>host cluster</strong>) to host the federated control plane. This can be hosted in any region but you may prefer to use a European region for low latency. As this is only a federation demo, a 1-node cluster will suffice (number of nodes can be specified with the <code>--num-nodes</code> flag when creating a GKE cluster). Also, it is <em>important</em> to add the <code>https://www.googleapis.com/auth/ndev.clouddns.readwrite</code> scope to nodes in the <code>default-pool</code>.</p>
+
+<h3 id="step-4-use-kubefed-to-initialise-the-federation-control-plane">step 4 - use kubefed to initialise the federation control plane</h3>
+
+<p><code>kubefed</code> is a command-line tool for setting up and administering federated clusters.</p>
+
+<p>The full how-to to use <code>kubefed</code> can be found <a href="https://kubernetes.io/docs/tasks/federation/set-up-cluster-federation-kubefed/">here</a>. The steps that will follow will use this guide and note additional gotchas along the way.</p>
+
+<p>We will initialise the federation control plane on the <strong>host clusters</strong>.</p>
+
+<p>Firstly, you may wish to create a cluster context with a more convenient name!</p>
+
+<pre><code class="language-bash"># find the generated cluster context name
+$ kubectl config get-context | grep federation-cluster-name
+# create a new cluster context with a more convenient name (e.g. fed-cluster)
+# use the cluster and user from above command output (e.g. gke_myproject_asia-east1-b_gce-asia-east1 )
+$ kubectl config set-context fed-cluster --cluster=gke_myproject_asia-east1-b_gce-asia-east1 --user=gke_myproject_asia-east1-b_gce-asia-east1
+</code></pre>
+
+<p>Validate the new context works:</p>
+
+<pre><code class="language-bash">$ kubectl --context=fed-cluster cluster-info
+</code></pre>
+
+<p>Now you can continue to <code>kubefed init</code> using <code>fed-cluster</code> as the <code>host-cluster-context</code> and the DNS zone created in step 3. Enable basic and token authentication.</p>
+
+<p>All being well, you should then be able to see these control plane pods running:</p>
+
+<pre><code class="language-bash">$ kubectl --context=federation --namespace=federation-system get pods
+</code></pre>
+
+<p>Note: <code>kubefed</code> should set-up a new cluster context (e.g. <code>federation</code> above) based on the name specified in the <code>init</code>.</p>
+
+<h3 id="step-5-join-the-regional-clusters">step 5 - join the regional clusters</h3>
+
+<p>Now is the time to <code>join</code> the regional clusters set-up by you and your team members in step 1 to the federation.</p>
+
+<p>The federation components connect to the regional clusters, hence the requirement to permit access to these clusters. <code>kubefed</code> will use cluster contexts from a local <code>kubeconfig</code> so you should be sure that you have the contexts (with the necessary access credentials) set-up. If you have all granted access to the team member that provisioned and initialised the federation control plane, this should be a case of using <code>gcloud container clusters get-credentials</code> for each cluster.</p>
+
+<p>For each regional cluster, <code>join</code> it to the federation:</p>
+
+<pre><code class="language-bash">$ kubefed --context=federation join asia-socks \
+  --cluster-context=eu-socks \
+  --host-cluster-context=fed-cluster
+</code></pre>
+
+<p>Verify the clusters have been successfully added to the federation:</p>
+
+<pre><code class="language-bash">$ kubectl --context=federation get clusters
+NAME       STATUS    AGE
+eu-socks   Ready     1m
+us-socks   Ready     1m
+</code></pre>
+
+<h3 id="step-6-deploy-the-front-end-service-and-deployment">step 6 - deploy the front-end service and deployment</h3>
+
+<p>As you may recall from the introduction, it is the <code>front-end</code> that will be federated. All other microservices (i.e. <code>cart</code>, <code>catalogue</code> etc) will reside in each regional cluster because they require state (database).</p>
+
+<p>In this step, you should deploy the <code>front-end</code> <em>using the federation cluster</em> and it should be exposed with a <code>Service</code> of type <code>LoadBalancer</code>. This will result in a <a href="https://cloud.google.com/compute/docs/load-balancing/network/">network load balancer</a>, with a single IP, for <strong>each</strong> region cluster.</p>
+
+<h3 id="step-7-load-balance-across-the-regional-clusters">step 7 - load balance across the regional clusters</h3>
+
+<p>With the multiple IPs of the regional load balancers, it is possible to set-up simple cross-region load balancing use DNS round-robin. You can create multiple DNS A records for a <code>www</code> sub-domain, say - i.e. for <code>www.socks.workshop.jetstack.net</code>.</p>
+
+<p>However, if you have access to <a href="https://aws.amazon.com/route53/">AWS Route53</a> (or similar) you may wish to use this instead to take advantage of more advanced features such as latency-based routing, GeoDNS and more. Such features would enable Sock Shop customers to be routed to the nearest Google Cloud region.</p>
+
+<p>It is worth noting that if the clusters had all been deployed into a <em>single</em> Google Cloud project, then Federated Ingress could have been used instead. With this single federated resource, Google Cloud sets up ingresses in each underlying regional cluster and connects this up to a <a href="https://cloud.google.com/compute/docs/load-balancing/http/">global HTTP(S) load balancer</a>. This provides a single anycast IP for global load balancing.</p>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>
