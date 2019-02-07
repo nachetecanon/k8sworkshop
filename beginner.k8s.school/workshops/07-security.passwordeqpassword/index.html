@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | A) Password = password</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>07. Security</h1>
+            <h2>A) Password = password</h2>
+            <hr />
+            <h4 style="color:#666;">Configure our MySQL pods with Secrets and config maps</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>In this workshop we will create a <code>ConfigMap</code> to store database config and a
+<code>Secret</code> to set the password in the <code>catalogue-db</code> pod.</p>
+
+<h3 id="create-a-configmap">Create a ConfigMap</h3>
+
+<p>Change directory into workshop-07</p>
+
+<pre><code class="language-bash">cd attendee-resources/workshop-07
+</code></pre>
+
+<p>Next, we can create our <code>ConfigMap</code>. Write a new file called
+<code>catalogue-db-config.yaml</code> with the following content:</p>
+
+<pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: catalogue-db
+  namespace: sock-shop
+data:
+  MYSQL_DATABASE: socksdb
+</code></pre>
+
+<p>We&rsquo;re going to use this to configure the database as environment variables. We
+can use a config map for settings that are less sensitive.</p>
+
+<p>Apply your <code>ConfigMap</code>:</p>
+
+<pre><code>kubectl apply -f catalogue-db-config.yaml
+</code></pre>
+
+<h3 id="create-a-secret">Create a Secret</h3>
+
+<p>Next we can create a <code>Secret</code>. Write a new file called <code>catalogue-db-secret.yaml</code>
+with the following content:</p>
+
+<pre><code>apiVersion: v1
+kind: Secret
+metadata:
+  name: catalogue-db
+  namespace: sock-shop
+data:
+  password: c3VwZXItc2VjdXJlLXBhc3N3b3Jk
+</code></pre>
+
+<p>We&rsquo;ll be using the password value in this <code>Secret</code> to set the database&rsquo;s
+password. Check the password value using:</p>
+
+<pre><code>echo c3VwZXItc2VjdXJlLXBhc3N3b3Jk | base64 --decode
+</code></pre>
+
+<p>Apply the secret so it&rsquo;s available when we update the deployment later.</p>
+
+<pre><code>kubectl apply -f catalogue-db-secret.yaml
+</code></pre>
+
+<h3 id="update-our-catalogue-db-deployment">Update our catalogue-db deployment</h3>
+
+<p>We&rsquo;re doing to be making some edits to one of the manifest in an earlier
+workshop. Let&rsquo;s make a copy here to work with.</p>
+
+<pre><code class="language-bash">cp ../workshop-04/deployments/catalogue-db-dep.yaml .
+</code></pre>
+
+<p><code>ConfigMap</code>s and <code>Secret</code>s can be used as either environment variables or volume
+mounts. MySQL is easily configured with environment variables so we&rsquo;re going to
+use that option to configure our MySQL container.</p>
+
+<p>The <code>Secret</code> can be consumed as an environment variable.</p>
+
+<pre><code class="language-yaml">        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: catalogue-db
+              key: password
+</code></pre>
+
+<p>The <code>ConfigMap</code> can be used in a similar way.</p>
+
+<pre><code class="language-yaml">        env:
+        - name: MYSQL_DATABASE
+          valueFrom:
+            configMapRef:
+              name: catalogue-db-config
+              key: MYSQL_DATABASE
+</code></pre>
+
+<p>This is fine for a small number of variables, but there&rsquo;s a neater way to write
+it if you&rsquo;ve got a lot of variables to set.</p>
+
+<pre><code>        envFrom:
+        - configMapRef:
+            name: catalogue-db
+</code></pre>
+
+<p>Once we&rsquo;ve finished making our edits we should have a new catalogue-db
+<code>Deployment</code> that looks like this (make sure you&rsquo;ve removed the old environment
+variables).</p>
+
+<pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalogue-db
+  labels:
+    name: catalogue-db
+  namespace: sock-shop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: catalogue-db
+  template:
+    metadata:
+      labels:
+        name: catalogue-db
+    spec:
+      containers:
+      - name: catalogue-db
+        image: weaveworksdemos/catalogue-db:0.2.0
+        envFrom:
+        - configMapKeyRef:
+            name: catalogue-db
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: catalogue-db
+              key: password
+        ports:
+        - name: mysql
+          containerPort: 3306
+</code></pre>
+
+<p>Apply the updated <code>catalogue-db-dep.yaml</code> file and wait for the new pods to run.
+Find the new pod names with the following:</p>
+
+<pre><code>kubectl get pods -l name=catalogue-db -n sock-shop
+</code></pre>
+
+<p>Use once you&rsquo;ve got the name of the pod, you can exec into it and run <code>env</code> to
+view the variables that have been set. You should see that the database name and
+password have been set inside the new container.</p>
+
+<pre><code>$ kubectl exec -it catalogue-db-XXXXXX-XXXXX env -n sock-shop | grep MYSQL
+MYSQL_ROOT_PASSWORD=super-secure-password
+MYSQL_DATABASE=socksdb
+MYSQL_MAJOR=5.7
+MYSQL_VERSION=5.7.16-1debian8
+</code></pre>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>

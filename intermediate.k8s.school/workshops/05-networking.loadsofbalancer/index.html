@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | Loads of balancer</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+
+
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>05. Networking</h1>
+            <h2>Loads of balancer</h2>
+            <hr />
+            <h4 style="color:#666;">Deploy load-balancing nginx ingress controller. Use cert-manager for automated TLS with an ingress resource.</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>In this workshop, we will use the NGINX ingress controller and add automated TLS support, with the aid of <a href="https://github.com/jetstack/cert-manager">cert-manager</a>, to deploy a secure Sock Shop.</p>
+
+<h3 id="step-1-deploy-nginx-ingress-controller">step 1 - deploy Nginx ingress controller</h3>
+
+<p>Run the following commands to <a href="https://kubernetes.github.io/ingress-nginx/deploy/">install the NGINX ingress controller</a>:</p>
+
+<pre><code class="language-bash">kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/nginx-0.18.0/deploy/mandatory.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/nginx-0.18.0/deploy/provider/cloud-generic.yaml
+</code></pre>
+
+<h3 id="step-2-get-the-external-ip-for-nginx-and-update-dns">step 2 - get the external IP for NGINX and update DNS</h3>
+
+<p>In the first step, a <code>Service</code> of type <code>LoadBalancer</code> was created for NGINX.
+To find out the load balancer external IP, we need to examine its <code>Service</code>:</p>
+
+<pre><code class="language-bash">$ kubectl -n ingress-nginx get svc ingress-nginx
+
+NAME            TYPE           CLUSTER-IP    EXTERNAL-IP      PORT(S)                      AGE
+ingress-nginx   LoadBalancer   10.3.246.61   35.230.140.211   80:30473/TCP,443:31181/TCP   3h
+</code></pre>
+
+<p>Copy the <code>EXTERNAL-IP</code> and navigate to it in a browser.
+You should see <code>default backend - 404</code>.</p>
+
+<p><strong>NOTE: Be sure to get the IP address of the <code>ingress-nginx</code> service.</strong>
+There is also an external IP assigned to the sock-shop <code>front-end</code> service but we are not using that in this workshop.</p>
+
+<p>You should now add a DNS A record for the hostname you want to use to access the sock shop, pointing to this IP. You should either:</p>
+
+<ul>
+<li>have the permission and access to update DNS records, or</li>
+<li>you might want to stretch yourself and try using <a href="https://github.com/kubernetes-incubator/external-dns">ExternalDNS</a>, a controller that will automatically update Google Cloud DNS. If you follow this route, the <a href="https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/nginx-ingress.md">nginx-ingress tutorial</a> at the docs is for you.</li>
+</ul>
+
+<p>If you do not own a domain you can use, ask an instructor and one can be created for you.</p>
+
+<h3 id="step-3-create-a-non-tls-ingress-resource">step 3 - create a non-TLS ingress resource</h3>
+
+<p>An <code>Ingress</code> resource describes to Kubernetes how to forward external (Layer 7) traffic into the cluster.</p>
+
+<p>We will make an <code>Ingress</code> that will be consumed by the NGINX ingress controller to create configuration to reverse proxy to the Sock Shop <code>front-end</code> service.</p>
+
+<p>Take a look inside the <code>attendee-resources/workshop-05/ingress-frontend.yaml</code> file and replace the <code>host</code> with the one you created in the previous step.</p>
+
+<pre><code class="language-yaml">apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: frontend-ingress
+  namespace: sock-shop
+  annotations:
+    kubernetes.io/ingress.class: &quot;nginx&quot;
+spec:
+  rules:
+  - host: &lt;your.host.here&gt;
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: front-end
+          servicePort: 80
+</code></pre>
+
+<p>Create the ingress resource using <code>kubectl apply</code>:</p>
+
+<pre><code class="language-bash">kubectl apply -n sock-shop -f attendee-resources/workshop-05/ingress-frontend.yaml
+</code></pre>
+
+<p>Now visit http://<your-domain> in a web browser.
+You should see the Sock Shop site.</p>
+
+<p>To understand how this works, take a look at the Nginx configuration:</p>
+
+<pre><code>kubectl get pods -n ingress-nginx
+kubectl -n ingress-nginx exec &lt;nginx-ingress-pod-name&gt; cat /etc/nginx/nginx.conf
+</code></pre>
+
+<p>You should see that the Nginx Ingress Controller has rewritten the <code>nginx.conf</code> file to include a <a href="http://nginx.org/en/docs/http/ngx_http_core_module.html#server">Server Block</a> for your chosen DNS name.</p>
+
+<pre><code>## start server www.example.com
+server {
+        server_name www.example.com ;
+
+        listen 80;
+...
+        proxy_pass http://sock-shop-front-end-80;
+}
+</code></pre>
+
+<p>It has added a reverse HTTP proxy configuration for your domain name.
+This makes Nginx forward any HTTP requests that have <code>Host</code> header &ldquo;www.example.com&rdquo;, to the <code>front-end</code> <code>Service</code> IP in the <code>sock-shop</code> namespace, on port 80.</p>
+
+<p>We&rsquo;ve seen how the Nginx Ingress Controller allows you to serve multiple HTTP services on a single external IP address.</p>
+
+<h3 id="step-4-enable-cert-manager">step 4 - enable cert-manager</h3>
+
+<p>At this stage, the Sock Shop is deployed, but now we want to use TLS to make sure customers feel confident browsing the shop.</p>
+
+<p>The Nginx Ingress Controller can also be configured as a <a href="https://kubernetes.github.io/ingress-nginx/examples/tls-termination/README/">TLS Termination Proxy</a>.
+This means that when you visit https://<your-domain> in a web browser, the TLS handshake and TLS encryption will be processed by the Nginx Ingress server.
+The HTTP requests will then be forwarded (unencrypted) to another Service IP.</p>
+
+<p><strong>NOTE: For more technical details visit <a href="https://en.wikipedia.org/wiki/TLS_termination_proxy">the TLS Termination Proxy page on Wikipedia</a></strong></p>
+
+<p>For this, the Nginx Ingress Controller looks at the <a href="https://kubernetes.io/docs/concepts/services-networking/ingress/#tls">TLS configuration of <code>Ingress</code> resources</a> and for TLS certificates which it expects to get from the Kubernetes API server, as Secrets.</p>
+
+<p>You can create and upload the secrets yourself, but it can be tedious and error prone, especially if you want to regularly renew your TLS certificates (which you should!).
+Fortunately there&rsquo;s a way to automate that process, using a Kubernetes extension called <a href="https://github.com/jetstack/cert-manager">cert-manager</a>.</p>
+
+<p><code>cert-manager</code> is a powerful, general-purpose certificate manager with many applications.
+In this example, we will use it to monitor <code>Ingress</code> resources and automatically fetch (and renew) certificates by interfacing with <a href="https://letsencrypt.org/">Let&rsquo;s Encrypt</a>.</p>
+
+<p>Canonically, <code>cert-manager</code> is installed by Helm chart, however here we&rsquo;ll use
+the raw manifests directly to make reduce the number of things going on. Create
+the <code>cert-manager</code> resources. Note how we&rsquo;re creating the resources in a new
+namespace.</p>
+
+<pre><code class="language-bash">kubectl apply -f https://raw.github.com/jetstack/cert-manager/v0.5.0/contrib/manifests/cert-manager/with-rbac.yaml
+</code></pre>
+
+<p>We now have a deployment of <code>cert-manager</code>&rsquo;s core, but it&rsquo;s a general-purpose system and doesn&rsquo;t yet know how to issue certificates; how to take our requests for desired certificates and get them signed by an authority. We interact with <code>cert-manager</code> in a &ldquo;Kubernetes native&rdquo; way, i.e. by using custom resource types that it&rsquo;s defined (aka CRDs). There is an <code>Issuer</code> kind which tells it how to issue certificates. We could configure <code>cert-manager</code> with our own CA cert and have it sign requests with that, but for this ingress exercise we&rsquo;ll configure it to use Let&rsquo;s Encrypt to issue certificates.</p>
+
+<p>After <strong>replacing</strong> <code>YOUR_EMAIL_HERE</code> with your e-mail address, apply the
+following <em>Custom Resource</em> Definition:</p>
+
+<pre><code class="language-yaml"># Create attendee-resources/workshop-05/my-cluster-issuer.yaml
+
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    # The ACME server URL
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # Email address used for ACME registration
+    email: YOUR_EMAIL_HERE
+    # Name of a secret used to store the ACME account private key
+    privateKeySecretRef:
+      name: letsencrypt-prod-key
+    # Enable the HTTP-01 challenge provider
+    http01: {}
+</code></pre>
+
+<p>Apply our new <code>ClusterIssuer</code>:</p>
+
+<pre><code class="language-bash">kubectl apply -f attendee-resources/workshop-05/my-cluster-issuer.yaml
+</code></pre>
+
+<p><em>Note how this is a <code>ClusterIssuer</code>; it is not namespaced because it models a resource outside of the cluster.</em></p>
+
+<p>We could now use <code>cert-manager</code> to manually get certificates from Let&rsquo;s Encrypt. <code>cert-manager</code> has a <code>Certificate</code> resource which declares a certificate we&rsquo;d like to have. However in this example we&rsquo;ll configure <code>cert-manager</code> to watch for <code>Ingress</code> resources and automatically issue certificates to them (like the old <code>kube-lego</code> project).</p>
+
+<p><em>Kubernetes uses declarative APIs, so this resource isn&rsquo;t called <code>CSR</code> for the same reason that <code>Pod</code> isn&rsquo;t called <code>DesiredPod</code> or <code>PodRequest</code>.</em></p>
+
+<h3 id="step-5-enable-tls">step 5 - enable TLS</h3>
+
+<p>To trigger TLS to be enabled, and for <code>cert-manager</code> to obtain a Let&rsquo;s Encrypt
+certificate for it, we need to update the <code>Ingress</code> resource.</p>
+
+<ul>
+<li>A <code>tls</code> stanza is required with a <code>host</code> field to match in the SNI header, and
+a <code>secretName</code> where the certificates will be stored by <code>cert-manager</code> and
+fetched by the ingress controller</li>
+<li>The presence of the <code>certmanager.k8s.io/cluster-issuer</code> annotation tells
+<code>cert-manager</code> to automatically provision a certificate for this <code>Ingresss</code>
+resource. Its value specifies the CA to ask to sign the certificate.</li>
+</ul>
+
+<p>Edit the <code>attendee-resources/workshop-05/ingress-frontend.yaml</code> file.</p>
+
+<p>Add your hostname e.g. <code>mycluster.example.com</code> <strong>and</strong> the
+<code>certmanager.k8s.io/cluster-issuer: &quot;letsencrypt-prod&quot;</code> annotation.</p>
+
+<p><strong>Important</strong>: <code>cert-manager</code> will only provision certificates for Ingress
+resources with this annotation.</p>
+
+<pre><code class="language-yaml">apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: frontend-ingress
+  namespace: sock-shop
+  annotations:
+    kubernetes.io/ingress.class: &quot;nginx&quot;
+    certmanager.k8s.io/cluster-issuer: &quot;letsencrypt-prod&quot;
+spec:
+  tls:
+  - hosts:
+    - &lt;your.host.here&gt;
+    secretName: front-end-tls
+  rules:
+  - host: &lt;your.host.here&gt;
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: front-end
+          servicePort: 80
+</code></pre>
+
+<p><code>cert-manager</code> will now automatically kick off the process of requesting a
+certificate (via the ACME protocol, using the http-01 challenge for those who
+are interested - read more <a href="https://letsencrypt.org/how-it-works/">here</a>).</p>
+
+<p>To check whether the certificate has been obtained successfully, <code>kubectl
+describe</code> the <code>Certificate</code> resource.</p>
+
+<pre><code class="language-bash">kubectl describe certificate front-end-tls -n sock-shop
+</code></pre>
+
+<p>For example, you will be able to see the events that describe the status of the
+certificate request process.</p>
+
+<pre><code class="language-bash">  Type    Reason          Age      From          Message
+  ----    ------          ----     ----          -------
+  Normal  CreateOrder     57m      cert-manager  Created new ACME order, attempting validation...
+  Normal  DomainVerified  55m      cert-manager  Domain &quot;example.com&quot; verified with &quot;http-01&quot; validation
+  Normal  DomainVerified  55m      cert-manager  Domain &quot;www.example.com&quot; verified with &quot;http-01&quot; validation
+  Normal  IssueCert       55m      cert-manager  Issuing certificate...
+  Normal  CertObtained    55m      cert-manager  Obtained certificate from ACME server
+  Normal  CertIssued      55m      cert-manager  Certificate issued successfully
+</code></pre>
+
+<p>Once <code>cert-manager</code> has finished its magic, you should see two certificates in a
+<code>Secret</code>. NGINX knows where to find these certificates and will be
+ready-configured to serve traffic with TLS on the domain.</p>
+
+<pre><code class="language-bash">kubectl get secret -n sock-shop
+</code></pre>
+
+<p>Now go ahead and check out the site at the HTTPS URL - job done (with the help
+of Kubernetes and <code>cert-manager</code>), get yourself a well-earned coffee!</p>
+
+<p><strong>NOTE: That simple modification to the <code>Ingress</code> resource, triggered quite a complex series of interactions:</strong>
+1. The Nginx Ingress Controller will attempt to get the <code>Secret</code> with name <code>front-end-tls</code>, from the <code>sock-shop</code> namespace of the Kubernetes API, and write them to files in the Nginx server container.
+2. The Nginx Ingress Controller will rewrite the <code>server {}</code> block in the <code>nginx.conf</code> with TLS configuration options for your DNS host and the certificate files downloaded (above). It will then reload the Nginx server.
+3. Meanwhile <code>cert-manager</code> controller will create a TLS certificate matching your DNS hostname.
+4. <code>cert-manager</code> will send a certificate signing request (CSR) to the LetsEncrypt API.
+5. <code>cert-manager</code> will set up another (temporary) Ingress resource, matching <code>http://&lt;your-domain&gt;/&lt;lets-encrypt-validation-path&gt;</code>, which will <a href="https://letsencrypt.org/how-it-works/">allow the LetsEncrypt service to validate that you control the domain and web server</a>.
+6. Once validated, <code>cert-manager</code> will get the signed certificate from LetsEncrypt and save it as a <code>Secret</code> in the <code>sock-shop</code> namespace.
+7. And finally, the Nginx Ingress Controller will see the new secrets and reconfigure and reload the Nginx server.</p>
+
+<p>Take another look at the <code>nginx.conf</code> file and see for yourself how the TLS termination is configured:</p>
+
+<pre><code>kubectl -n ingress-nginx exec nginx-ingress-controller-5f6d649c67-4vvz4 cat /etc/nginx/nginx.conf
+</code></pre>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>

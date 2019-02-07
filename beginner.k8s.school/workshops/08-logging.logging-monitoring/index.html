@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | A) Logging &amp; Monitoring</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>08. Logging</h1>
+            <h2>A) Logging &amp; Monitoring</h2>
+            <hr />
+            <h4 style="color:#666;">Know what is happening in your cluster</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>In this workshop we will see what is happening in a cluster by using the Dashboard to see resources visually in a web-based UI, examine logs at the shell and see Stackdriver integration with GKE.</p>
+
+<h3 id="step-1-proxy-to-the-api-and-access-the-dashboard">step 1 - proxy to the API and access the dashboard</h3>
+
+<p>You can set-up a local proxy to the GKE API server using <code>kubectl proxy</code>. The default port is 8001 but it can be overridden (<code>--port</code>).</p>
+
+<pre><code class="language-bash">$ kubectl proxy &amp;
+</code></pre>
+
+<p><code>kubectl cluster-info</code> will show the addresses of the master and cluster services. The dashboard is a cluster service.</p>
+
+<pre><code class="language-bash">$ kubectl cluster-info
+Kubernetes master is running at https://xxx.xxx.xxx.xxx
+...
+kubernetes-dashboard is running at https://xxx.xxx.xxx.xxx/api/v1/proxy/namespaces/kube-system/services/kubernetes-dashboard
+</code></pre>
+
+<p>With a proxy, we can use the <code>localhost</code> address instead (and not worry about certificates in the browser) - <a href="http://localhost:8001/api/v1/proxy/namespaces/kube-system/services/kubernetes-dashboard">http://localhost:8001/api/v1/proxy/namespaces/kube-system/services/kubernetes-dashboard</a>.</p>
+
+<h3 id="step-2-use-kubectl-to-view-pod-logs">step 2 - use kubectl to view pod logs</h3>
+
+<p>To simply view the logs (i.e. stdout, stderr) of a pod, use <code>kubectl logs</code>. It will be streamed from the Kubelet on the node that the pod resides (from Docker). For example, to tail the <code>catalogue</code> logs (replace the pod name with the name of the pod in your cluster):</p>
+
+<pre><code>$ kubectl logs -n sock-shop catalogue-3179692907-64624 -f
+</code></pre>
+
+<h3 id="step-3-play-with-stackdriver">step 3 - play with Stackdriver</h3>
+
+<p>By default, a GKE cluster ships with support for <a href="https://cloud.google.com/logging/">Stackdriver</a>.</p>
+
+<p>Use the Cloud Console to play with Stackdriver.</p>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>

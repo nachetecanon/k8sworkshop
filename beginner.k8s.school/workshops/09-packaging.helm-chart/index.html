@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | A) Write a Helm chart</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>09. Packaging</h1>
+            <h2>A) Write a Helm chart</h2>
+            <hr />
+            <h4 style="color:#666;">Write a simple helm chart for the Sock Shop and deploy it</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>In this workshop we&rsquo;re going to package the sock-shop as a Helm chart. We&rsquo;ll use
+helm to template some of the values in the manifests before deploying the
+rendered templates to the cluster.</p>
+
+<p>Before we start, make sure that you&rsquo;ve removed any existing deployments of the
+sock-shop applications.</p>
+
+<pre><code>kubectl delete ns sock-shop
+</code></pre>
+
+<p>As it&rsquo;s quite a large application, we&rsquo;ll start by just deploying the front end
+service.</p>
+
+<p>You might find it useful to refer to the Helm documentation about creating
+charts <a href="https://github.com/kubernetes/helm/blob/master/docs/charts.md">here</a>.
+For now, we&rsquo;re going to run through some of the basics to get you started.</p>
+
+<h2 id="create-a-new-chart">Create a new chart</h2>
+
+<p>Change directory the empty folder for this workshop:</p>
+
+<pre><code>cd attendee-resources/workshop-09/
+</code></pre>
+
+<p>Helm has a command to scaffold a new chart. While it&rsquo;s a good exercise to do
+this and review the generated files - it comes with rather more than we need.</p>
+
+<p>Instead, we&rsquo;re going to create the files ourselves to understand what each is
+doing.</p>
+
+<h2 id="chart-yaml">Chart.yaml</h2>
+
+<p><code>Chart.yaml</code> is a file that contains metadata about your chart - similar to
+parts of a <code>package.json</code> if you&rsquo;ve ever worked with a JS project. (note:
+dependencies for a helm chart are recorded in a separate file
+<code>requirements.yaml</code>)</p>
+
+<p>Create a <code>Chart.yaml</code> file with the following contents:</p>
+
+<pre><code>apiVersion: v1
+name: sock-shop
+description: A shop selling socks
+version: 0.1.0
+</code></pre>
+
+<p>Here we create a <code>sock-shop</code> chart using version Helm <code>apiVersion</code> v1. Our chart
+also has a version <code>0.1.0</code> and a short informative description.</p>
+
+<h2 id="values-yaml">values.yaml</h2>
+
+<p>The next file you&rsquo;ll want in your chart is a <code>values.yaml</code>. This contains
+values for variables used across the chart&rsquo;s templates. It&rsquo;s just another yaml
+file, create <code>values.yaml</code> with the following contents (a variable we&rsquo;ll use
+later in the frontend template to set the replicas).</p>
+
+<pre><code>frontendReplicaCount: 1
+</code></pre>
+
+<h2 id="templates">templates</h2>
+
+<p>Now all we need in our chart are some manifest templates. First create a
+directory for out templates:</p>
+
+<pre><code>mkdir templates
+</code></pre>
+
+<p>You&rsquo;ll often find yourself reaching for Helm and manifest templating as you
+write more and more related manifests. Often a small project will start with
+just a handful of manifests that can be manually updated.</p>
+
+<p>As projects grow this becomes tedious and that&rsquo;s where Helm comes in.</p>
+
+<p>We&rsquo;re in that position with sock-shop. Luckily it&rsquo;s quick to get started in this
+scenario by copying over the existing manifests and adding templating as needed.
+We&rsquo;ll do this now.</p>
+
+<pre><code>cp -r ../workshop-04/**/*.yaml templates/
+cp ../workshop-04/00-sock-shop-ns.yaml templates/
+</code></pre>
+
+<h2 id="using-helm-template">Using helm template</h2>
+
+<p>Now we&rsquo;ve copied over some manifests, we&rsquo;re ready to use <code>helm template</code>. Since
+we&rsquo;ve not got any templating syntax in our manifests, all this will do is output
+all the manifests in the folder. However, it&rsquo;s a good sanity check before we
+continue.</p>
+
+<pre><code>helm template . | less
+</code></pre>
+
+<p>Use <code>/</code> to explore the less output. Check that the manifests all appear as you&rsquo;d
+expect.</p>
+
+<p>This output can be piped in to kubectl apply (using <code>-</code> to refer to the standard
+input):</p>
+
+<pre><code>helm template . | kubectl apply -f -
+</code></pre>
+
+<p>This is our recommended method of using Helm. Helm has a server-side component
+that&rsquo;s challenging to secure and makes it slower to get started. If you&rsquo;re
+interested, the Helm docs on the matter are
+<a href="https://github.com/helm/helm/blob/master/docs/securing_installation.md">here</a>.</p>
+
+<p>After a short wait, you should see the sock-shop pods running again in their
+namespace.</p>
+
+<pre><code>kubectl get pods -n sock-shop
+</code></pre>
+
+<h2 id="template-a-value">Template a value</h2>
+
+<p>Remember that value we set in our <code>values.yaml</code> earlier? (hint: it looked like
+this)</p>
+
+<pre><code>frontendReplicaCount: 1
+</code></pre>
+
+<p>We&rsquo;re going to get helm to template in this value for us. Open in the
+<code>templates/front-end-dep.yaml</code> file and change the hardcoded replicas line:</p>
+
+<pre><code class="language-diff">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: front-end
+  namespace: sock-shop
+spec:
+  # replicas: 1 # remove this line
+  replicas: {{ .Values.frontendReplicaCount }}
+...
+</code></pre>
+
+<p>If you view the result of the helm templating again and search for <code>front-end</code>
+you&rsquo;ll see that the value has been rendered in the front-end deployment yaml
+(press n to find later matches after pressing enter).</p>
+
+<pre><code>helm template . | less
+</code></pre>
+
+<p>The resulting yaml is the same, but now we&rsquo;re controlling that value with Helm.
+Apply it to the cluster, you&rsquo;ll see the deployment remains unchanged.</p>
+
+<pre><code>$ helm template . | kubectl apply -f -
+...
+deployment.apps &quot;front-end&quot; unchanged
+...
+</code></pre>
+
+<h2 id="template-lots-of-values">Template lots of values</h2>
+
+<p>So this is all nice, but we&rsquo;re just updating a single value here. The real value
+in templating is making changes to lots of files.</p>
+
+<p>One thing we&rsquo;re repeating a lot in our yamls is the namespace for all the
+services. At the moment, if we wanted to run the services in another namespace
+we&rsquo;d need to update all the services and deployment yamls.</p>
+
+<p>The namespace is also the name of the chart. It&rsquo;s common in Charts to use the
+name of the chart in naming and namespacing resources. Let&rsquo;s see how we do this.</p>
+
+<p>If we&rsquo;d used <code>helm create</code> to scaffold a chart for us, we&rsquo;d have a default
+template to render the name of the chart for us. We can easily add this now.</p>
+
+<p>Create a file <code>templates/_helpers.tpl</code> with the following content:</p>
+
+<pre><code>{{/* Expand the name of the chart. */}}
+{{- define &quot;name&quot; -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix &quot;-&quot; -}}
+{{- end -}}
+</code></pre>
+
+<p>Now we can use <code>{{ include &quot;name&quot; $ }}</code> where ever we want to see <code>sock-shop</code>.
+It looks a bit cumbersome but only needs to be written once. Replace sock-shop
+in the templates with the following command:</p>
+
+<pre><code>find templates/ -type f -exec sed -i &quot;s/sock-shop/{{ include \&quot;name\&quot; $ }}/g&quot; {} \;
+
+# Mac OS https://stackoverflow.com/a/15402972/1510063
+find templates/ -type f -exec sed -i &quot;&quot; &quot;s/sock-shop/{{ include \&quot;name\&quot; $ }}/g&quot; {} \;
+</code></pre>
+
+<p>Now if we run <code>helm template</code> again, we&rsquo;ll see the namespace is set to the name
+of our chart, <code>sock-shop</code>.</p>
+
+<pre><code>helm template . | less
+</code></pre>
+
+<p>The resulting yaml is the same again, let&rsquo;s apply it.</p>
+
+<pre><code>$ helm template . | kubectl apply -f -
+...
+resource.type &quot;xxx&quot; unchanged
+...
+</code></pre>
+
+<h2 id="closing-remarks">Closing remarks</h2>
+
+<p>Helm has become the community choice for templating yamls and wrapping related
+resources up together.</p>
+
+<p>Feel free to play with adding extra variables or changing the values of those we
+added here. (note, Helm uses the golang templating syntax).</p>
+
+<p>A good next step is to play with <a href="https://github.com/helm/helm/blob/master/docs/helm/helm_dependency.md">adding
+dependencies</a>
+for your charts. This is where the real value in having a common format for
+describing distributed applications as Charts becomes apparent.</p>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>

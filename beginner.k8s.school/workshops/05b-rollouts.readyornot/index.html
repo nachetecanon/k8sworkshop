@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | B) Ready or Not</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>05. Rollouts</h1>
+            <h2>B) Ready or Not</h2>
+            <hr />
+            <h4 style="color:#666;">Use readiness and liveness probes</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>In this workshop, we will see how readiness and liveness probes are used by
+Kubernetes to determine whether an application is alive and ready to serve
+traffic.</p>
+
+<p>&lsquo;Ready&rsquo; might mean to your application that a healthy database connection is
+established, it can access message queues, caching servers or even a dependent
+API service, etc. If any of these &lsquo;ready&rsquo; conditions are not met the application
+can return failure (i.e. a non-200 response in the case of an HTTP probe). The
+Kubelet determines this via the probe and the pod is not routed traffic (via a
+service). This is really useful for rolling deploys where you want to ensure
+that pods only serve traffic once they&rsquo;re fully ready.</p>
+
+<p>A <code>readinessProbe</code> takes the same format as a <code>livenessProbe</code>, and may also be
+based on either HTTP (GET) or exec. In this example, we&rsquo;ll use a HTTP GET again.</p>
+
+<pre><code>readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 5
+</code></pre>
+
+<p>Create a <code>Deployment</code> of <code>gcr.io/jetstack-workshops/readiness-app:0.0.1</code> pods
+(<code>replicas: 3</code>) that implements this <code>readinessProbe</code>, as well as a
+<code>livenessProbe</code>. You should also <code>expose</code> it as a <code>Service</code>.</p>
+
+<p>This is the deployment YAML for reference:</p>
+
+<pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: readiness
+  name: readiness-app
+spec:
+  selector:
+    matchLabels:
+      app: readiness
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: readiness
+    spec:
+      containers:
+      - name: readiness
+        image: gcr.io/jetstack-workshops/readiness-app:0.0.1
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+</code></pre>
+
+<pre><code class="language-bash">$ kubectl apply -f attendee-resources/workshop-05b/readiness-app-deployment.yaml
+$ kubectl expose deploy readiness-app --port=80 --target-port=8080
+</code></pre>
+
+<h3 id="simulate-readiness-failure">Simulate readiness failure</h3>
+
+<p>Once the pods are all up and running (and it should be quick as the
+<code>readiness-app</code> image is a super small container image based on <code>busybox</code>), we
+will simulate a readiness failure in a pod using <code>/disable</code>. In the real world,
+this might be a database connection or dependent API service, say, that has
+failed and it is preferred for traffic to be routed elsewhere.</p>
+
+<p>To do this, you could either <code>kubectl exec</code> to a pod to call this or spin up a
+new <code>busybox</code> pod and use the IP address of one of the readiness pods; we&rsquo;re
+doing the former below. Note that you will need to use <code>kubectl get pods</code> to get
+the name of one of your readiness pods to replace the name used in the command
+below.</p>
+
+<pre><code class="language-bash">$ kubectl exec readiness-app-438635462-32jfq -c readiness -- wget http://localhost:8080/disable
+</code></pre>
+
+<p>The <code>readinessProbe</code> probe should now fail and the pod will be taken out of service.</p>
+
+<pre><code class="language-bash">$ watch kubectl get pods
+NAME                             READY     STATUS    RESTARTS   AGE
+readiness-app-438635462-32jfq    0/1       Running   0          1m
+$ kubectl get endpoints
+NAME             ENDPOINTS                   AGE
+readiness-app    10.0.0.7:80,10.0.3.5:80     10s
+</code></pre>
+
+<p>You&rsquo;ll notice &lsquo;Ready&rsquo; has changed (<code>0/1</code>) and there should now only be two
+healthy <code>ready-app</code> endpoints. Traffic will continue to be routed to these two
+pod endpoints without disruption - you may like to have a <code>curl</code> in a separate
+tab/terminal to see this in action.</p>
+
+<p>The pod should remain &lsquo;Running&rsquo; though, because the <code>livenessProbe</code> continues to
+report that the container is alive and running.</p>
+
+<p>Now bring the pod back into service (i.e. the error has been fixed) with
+<code>/enable</code> and use the commands above to see it come back.</p>
+
+<p>Note: if a <code>readinessProbe</code> is not specified, the Kubelet assumes a container&rsquo;s
+ready state to be success.</p>
+
+<h3 id="simulate-liveness-failure">Simulate liveness failure</h3>
+
+<p>Using the same <code>Deployment</code>, this time we&rsquo;ll simulate liveness failure. Visit
+<code>/break</code> and any calls to <code>/</code> thereafter will experience random latency (&gt; 5
+seconds). This should cause the <code>livenessProbe</code> to fail (timeout of 5 seconds)
+and the pod to be restarted.</p>
+
+<pre><code class="language-bash">$ watch kubectl get pods
+NAME                             READY     STATUS    RESTARTS   AGE
+readiness-app-438635462-32jfq    1/1       Running   1          1m
+</code></pre>
+
+<p>Note the restart count has incremented. This application will come back up in a
+healthy (i.e. live) state so further restarts shouldn&rsquo;t occur (unless
+triggered).</p>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>

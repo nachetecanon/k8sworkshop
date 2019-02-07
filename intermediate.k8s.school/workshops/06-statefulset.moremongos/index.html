@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | More Mongos</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+
+
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>06. StatefulSet</h1>
+            <h2>More Mongos</h2>
+            <hr />
+            <h4 style="color:#666;">deploy a mongodb replica set with a Helm chart using a StatefulSet</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>In this lab, we will use a Helm chart to provision a MongoDB <a href="https://docs.mongodb.com/manual/replication/">replica set</a> (not to be confused with a Kubernetes <code>ReplicaSet</code>!). This replica set will replace the single instance MongoDB pod used by the <code>carts</code> service in the Sock Shop.</p>
+
+<p>The ready-made MongoDB chart uses a <code>StatefulSet</code> resource, disks are dynamically provisioned (i.e. PV/PVC) and MongoDB pods have Init Containers for configuration and bootstrap.</p>
+
+<p>As an extension, we will also add a <code>PodDisruptionBudget</code> to always ensure quorum is available at all times, even during node upgrades.</p>
+
+<h2 id="before-you-begin">Before You Begin</h2>
+
+<p>Perform the following tasks before starting the exercise.
+Skip any tasks that you have already completed in previous workshops.</p>
+
+<h3 id="ensure-sock-shop-is-running">Ensure Sock Shop is running</h3>
+
+<p>Firstly, ensure you have Sock Shop up and running. In later steps, we will use the front end to add sock products to the cart.</p>
+
+<p>As a reminder, to find the public IP for the Sock Shop, grab the <code>EXTERNAL-IP</code> field of the <code>front-end</code> service:</p>
+
+<pre><code class="language-bash">$ kubectl -n=sock-shop  get svc
+</code></pre>
+
+<p>Browse the Sock Shop at this IP and check all is functioning.</p>
+
+<h3 id="install-and-initialise-helm">Install and Initialise Helm</h3>
+
+
+
+<p>You can grab the latest release from the <a href="https://github.com/kubernetes/helm/releases">official repository</a>, for Windows, OS X or Linux.</p>
+
+<p>Alternatively, OS X users can install with <code>brew install kubernetes-helm</code>.</p>
+
+<p>Read <a href="https://docs.helm.sh/using_helm/#installing-helm">Installing Helm</a> for more details.</p>
+
+
+
+
+
+<p>In order to use Helm, a server side component, Tiller, must be installed in your cluster.
+And if the cluster has RBAC enabled we must first <a href="https://docs.helm.sh/using_helm/#tiller-and-role-based-access-control">create a dedicated service account and RBAC role bindings</a> for Tiller:</p>
+
+<pre><code class="language-bash">$ kubectl create serviceaccount tiller --namespace kube-system
+$ kubectl create clusterrolebinding tiller --clusterrole=cluster-admin --serviceaccount=kube-system:tiller
+</code></pre>
+
+<pre><code class="language-bash">$ helm init --service-account tiller
+$ helm repo update
+</code></pre>
+
+<p>This will update the default Helm chart repositories locally, and install Tiller in the <code>kube-system</code> namespace of your cluster, using the dedicated <code>tiller</code> service account.</p>
+
+<p><strong>NOTE: This helm installation method is not suitable for use on production clusters.</strong>
+See <a href="https://docs.helm.sh/using_helm/#securing-your-helm-installation">Securing your Helm Installation</a> for more information.</p>
+
+
+
+<h2 id="exercise-provisioning-a-mongodb-cluster">Exercise: Provisioning a MongoDB Cluster</h2>
+
+<h3 id="step-1-install-the-helm-chart">step 1 - install the Helm chart</h3>
+
+<p>In this step, we will replace the MongoDB <code>Deployment</code> with a highly-available cluster using a ready-made Helm chart that uses a <code>StatefulSet</code> resource. The two versions will co-exist and we will then switch the <code>carts-db</code> service to select pods deployed by Helm.</p>
+
+<p>The <a href="https://github.com/kubernetes/charts/tree/master/stable/mongodb-replicaset">MongoDB Helm chart</a> can be found at the <a href="https://github.com/kubernetes/charts/">Kubernetes Helm charts repo</a> (note we are using the replica set chart that is now in <em>stable</em>).</p>
+
+<p>The <a href="https://github.com/kubernetes/charts/tree/master/stable/mongodb-replicaset#configuration">configuration</a> has sensible defaults but we will override the settings. Using <a href="https://github.com/kubernetes/charts/blob/master/stable/mongodb-replicaset/values.yaml">values.yaml</a> as a basis:</p>
+
+<ul>
+<li>Add suitable resource requests (and limits)</li>
+<li>Request larger disks (i.e. 50GB)</li>
+<li><em>Bonus</em>: Create a <code>StorageClass</code> for SSD persistent disks (type <code>pd-ssd</code>) and use this in place of the default class to provision fast SSD volumes for the MongoDB replicas.</li>
+</ul>
+
+<pre><code class="language-bash">$ export RELEASE_NAME=mongodb
+$ helm install --name $RELEASE_NAME -f values.yaml stable/mongodb-replicaset --namespace sock-shop
+</code></pre>
+
+<h3 id="step-2-see-replica-pods-and-corresponding-pvcs-and-pvs">step 2 - see replica pods and corresponding PVCs and PVs</h3>
+
+<p>Let&rsquo;s list the MongoDB pods that are running. After a short time deploying, we should see 3 MongoDB pods, each with separate PVCs and a bound PV disk. You can use a single <code>kubectl get</code> command to fetch multiple resource types.</p>
+
+<pre><code class="language-bash">$ kubectl get po,pvc,pv -n sock-shop
+</code></pre>
+
+<h3 id="step-3-update-the-carts-deployment">step 3 - update the carts deployment</h3>
+
+<p>To use the Helm-deployed MongoDB replica set in place of the existing <code>carts-db</code> <code>Deployment</code>, it is necessary to edit the <code>carts</code> <code>Deployment</code> to use a new connection URI. With new <code>carts</code> pod(s), this will switch traffic. In this case, we will not concern ourselves with data migration as we would in a real scenario.</p>
+
+<p>Update to the following:</p>
+
+<pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: carts
+  labels:
+    name: carts
+  namespace: sock-shop
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: carts
+  template:
+    metadata:
+      labels:
+        name: carts
+    spec:
+      containers:
+      - name: carts
+        image: weaveworksdemos/carts:0.4.8
+        ports:
+        - containerPort: 80
+        command:
+        - java
+        - -Djava.security.egd=file:/dev/urandom
+        - -Dspring.data.mongodb.uri=mongodb://mongodb-mongodb-replicaset:27017/data?replicaSet=rs0
+        - -jar
+        - ./app.jar
+        - --port=80
+</code></pre>
+
+<p>Note the updated <code>spring.data.mongodb.uri</code> that now refers to the <a href="https://kubernetes.io/docs/concepts/services-networking/service/#headless-services">headless service</a> created by the Helm chart.</p>
+
+<h3 id="step-4-add-to-the-cart-kill-the-primary-and-watch-election-and-reschedule">step 4 - add to the cart, kill the primary and watch election and reschedule</h3>
+
+<p>Add some socks to the shopping cart to insert some data into the database.</p>
+
+<p>MongoDB is a single-master database. Using <code>kubectl exec</code> we can execute a <code>mongo</code> client command to identify the elected primary.</p>
+
+<pre><code class="language-bash">$ kubectl exec $RELEASE_NAME-mongodb-replicaset-1 -n sock-shop -- sh -c 'mongo --eval=&quot;printjson(rs.isMaster())&quot;'
+</code></pre>
+
+<p>(note: you can <code>exec</code> against any pod created by the <code>StatefulSet</code>)</p>
+
+<p>In the JSON response from the client command, find the <code>primary</code>. Let&rsquo;s delete this pod. As this is a 3-instance replica set and quorum will continued to be maintained (2 of 3), the shopping cart should continue to function.</p>
+
+<pre><code class="language-bash">$ kubectl delete pod $RELEASE_NAME-mongodb-replicaset-1 -n sock-shop
+</code></pre>
+
+<p>Following the pod deletion, Kubernetes should rapidly recreate a pod with the same identity, reunited with the same disk. This will restore a full and healthy replica set again. Verify this is the case using MongoDB&rsquo;s <code>rs.status()</code> command.</p>
+
+<pre><code class="language-bash">$ kubectl exec $RELEASE_NAME-mongodb-replicaset-1 -n sock-shop -- sh -c 'mongo --eval=&quot;printjson(rs.status())&quot;'
+</code></pre>
+
+<h3 id="step-5-scale-up-the-replica-set">step 5 - scale-up the replica set</h3>
+
+<p>Next, we will request the replica set scales up to 5 instances. This is simply a case of updating the replica count in <code>values.yaml</code> (as used previously) and upgrading the release with Helm.</p>
+
+<pre><code class="language-bash">$ helm upgrade $RELEASE_NAME -f values.yaml stable/mongodb-replicaset
+</code></pre>
+
+<p>The new replicas should be started one-by-one and in order - watch the pods start:</p>
+
+<pre><code class="language-bash">$ watch kubectl get pod -n sock-shop
+</code></pre>
+
+<h3 id="bonus-step-6-add-a-pod-disruption-budget">bonus step 6 - add a pod disruption budget</h3>
+
+<p>Currently, a cluster node upgrade has the potential to cause disruption to the MongoDB replica set. Although the <code>StatefulSet</code> controller will always try to ensure the desired number of replicas exist, during node upgrade (or other voluntary evictions) there may be periods of time in which quorum of the replica set is not maintained.</p>
+
+<p>To mitigate this risk, we should use <a href="https://kubernetes.io/docs/tasks/run-application/configure-pdb/">PodDisruptionBudget</a> to specify a minimum number or percentage of replicas of the database cluster that must be up at a time. This will be respected during voluntary evictions, such as node upgrades.</p>
+
+<p>Create a <code>PodDisruptionBudget</code> for the MongoDB replica set by using appropriate label selectors (i.e. <code>app</code> and <code>release</code> labels). A <code>minAvailable</code> of 67% is recommended to ensure quorum (i.e. 2 of 3 replicas, 3 of 5 replicas, etc).</p>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>

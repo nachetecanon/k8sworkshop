@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | A) Retreat!</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>05. Rollouts</h1>
+            <h2>A) Retreat!</h2>
+            <hr />
+            <h4 style="color:#666;">Create a canary deployment with a bad image and then rollback</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>In this workshop, we will deploy a canary version of the front-end, alongside the stable version, and use a service to load balance traffic.</p>
+
+<h3 id="step-1-create-an-alternate-deployment-manifest">step 1 - create an alternate deployment manifest</h3>
+
+<p>Having learnt that we can easily mess up the site by blindly deploying what the designers do, we decide to rollout the change more gradually - starting with a canary release.</p>
+
+<p><strong>Copy the existing <code>attendee-resources/workshop-04/deployments/front-end-dep.yaml</code> file</strong></p>
+
+<pre><code class="language-bash">$ mkdir -p attendee-resources/workshop-05a
+$ cp attendee-resources/workshop-04/deployments/front-end-dep.yaml attendee-resources/workshop-05a/front-end-dep.canary.yaml
+</code></pre>
+
+<p>Then edit this file and make the following changes:</p>
+
+<ul>
+<li>change the <code>metadata.name</code> to <code>front-end-canary</code></li>
+<li>change the <code>spec.template.metadata.labels.version</code> to <code>0.2.1</code></li>
+<li>change the <code>spec.template.spec.containers[0].image</code> to <code>gcr.io/jetstack-workshops/front-end:0.2.1</code></li>
+</ul>
+
+<p>NOTE: keep the <code>spec.replicas</code> field the same between the stable and canary deployment. This will mean both versions receive 50% of the traffic each.</p>
+
+<p>Both pods will still get traffic because the front-end service will match any pod with <code>labels.name=front-end</code>.</p>
+
+<p>This is a classic use of Kubernetes deployments using labels. We combine several deployments into a group that will all get traffic from a single service.</p>
+
+<h3 id="step-2-push-the-deployment">step 2 - push the deployment</h3>
+
+<p><strong>Create our canary deployment:</strong></p>
+
+<pre><code class="language-bash">$ kubectl apply -f attendee-resources/workshop-05a/front-end-dep.canary.yaml
+</code></pre>
+
+<p><strong>Check the status</strong></p>
+
+<pre><code class="language-bash">$ watch kubectl -n=sock-shop \
+  get deploy
+</code></pre>
+
+<p>We should now see both <code>front-end</code> and <code>front-end-canary</code> deployments running alongside each other.</p>
+
+<h3 id="step-3-check-the-site">step 3 - check the site</h3>
+
+<p>Refresh your browser and you should see the pink design appear 50% of the time.</p>
+
+<h3 id="step-4-remove-the-canary">step 4 - remove the canary</h3>
+
+<p>Once again, we know the outcome - the designers ruined the site with their colour scheme.  Thankfully though, we have limited the damage to only a portion of our users because we used a canary deployment pattern.</p>
+
+<p><strong>Revert the deployment</strong></p>
+
+<p>Now we know the canary deployment didn&rsquo;t work out we can simply re-apply the old
+version again.</p>
+
+<pre><code class="language-bash">$ kubectl delete -f attendee-resources/workshop-05a/front-end-dep.canary.yaml
+</code></pre>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>

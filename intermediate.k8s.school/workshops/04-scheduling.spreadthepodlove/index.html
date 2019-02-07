@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | Spread the pod love</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+
+
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>04. Scheduling</h1>
+            <h2>Spread the pod love</h2>
+            <hr />
+            <h4 style="color:#666;">use advanced scheduling</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>In this workshop, we will see advanced Kubernetes scheduling in practice.</p>
+
+<p><strong>NOTE: if you are using the <a href="https://cloud.google.com/free">GCP free trial</a>, you may encounter quota limits during this exercise.</strong>
+The <a href="https://cloud.google.com/free/docs/frequently-asked-questions">Compute Engine limitations section, in the Free trial FAQ</a> explains that free trial projects can have no more than 8 virtual CPUs.
+So if you are using the free trial, be careful to only add the suggested number of nodes during this exercise.</p>
+
+<h3 id="step-1-scale-a-deployment-and-watch-kubernetes-schedule-to-nodes">step 1 - scale a deployment and watch Kubernetes schedule to nodes</h3>
+
+<p>Pick one of the stateless microservices to scale - e.g. <code>carts</code>, <code>catalogue</code>, <code>orders</code> or even <code>front-end</code>. In this example, we pick the <code>carts</code> microservice and use the imperative <code>kubectl scale</code> command to scale-up to 4 replicas.</p>
+
+<pre><code class="language-bash">$ kubectl scale deployment/carts --replicas=4 -n=sock-shop
+</code></pre>
+
+<p>In order to see <em>where</em> the <code>carts</code> pods have been scheduled, we can add some additional switches to a <code>kubectl get pod</code> command:</p>
+
+<pre><code class="language-bash">$ kubectl get pods -n sock-shop -l name=carts -o wide
+NAME                     READY     STATUS    RESTARTS   AGE       IP          NODE
+carts-57b6f6cc48-b6tgt   1/1       Running   0          14s       10.4.0.16   gke-demo-default-pool-342b8c90-vmjp
+carts-57b6f6cc48-l2h88   1/1       Running   0          14s       10.4.0.15   gke-demo-default-pool-342b8c90-vmjp
+carts-57b6f6cc48-qlbtd   1/1       Running   0          4m        10.4.1.8    gke-demo-default-pool-342b8c90-60sj
+carts-57b6f6cc48-wllb7   1/1       Running   0          14s       10.4.1.15   gke-demo-default-pool-342b8c90-60sj
+</code></pre>
+
+<p>In this example, the <code>carts</code> pods have been spread evenly across the cluster
+(2 nodes and 2 pods per node).
+The reason for this spread is that the <code>carts</code> service exists and the Kubernetes scheduler will, by default, achieve service anti-affinity.
+See the <code>SelectorSpreadPriority</code> priority function in the <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/scheduler_algorithm.md#ranking-the-nodes">scheduler</a>.</p>
+
+<h3 id="step-2-add-an-additional-zone-to-the-gke-cluster">step 2 - add an additional zone to the GKE cluster</h3>
+
+<p>By default, a GKE cluster is spun-up in a single zone and comprises nodes of the same instance type.
+However, it is possible to add extra nodes to a cluster, using additional node pools.</p>
+
+<p>To schedule cross-zone (next step), we need to add additional zone(s) to the GKE cluster configuration.</p>
+
+<p>First, find out the region and zone of the current nodes by running:</p>
+
+<pre><code class="language-bash">$ kubectl get nodes --label-columns failure-domain.beta.kubernetes.io/region,failure-domain.beta.kubernetes.io/zone
+NAME                                  STATUS    ROLES     AGE       VERSION        REGION         ZONE
+gke-demo-default-pool-db4bfeb5-qrs2   Ready     &lt;none&gt;    22m       v1.11          europe-west1   europe-west1-b
+gke-demo-default-pool-db4bfeb5-w0qk   Ready     &lt;none&gt;    22m       v1.11          europe-west1   europe-west1-b
+
+</code></pre>
+
+<p>Then get a list of all the compute zones in that region where your nodes are running:</p>
+
+<pre><code class="language-bash">$ gcloud compute zones list --filter=region=europe-west1
+NAME            REGION        STATUS  NEXT_MAINTENANCE  TURNDOWN_DATE
+europe-west1-b  europe-west1  UP
+europe-west1-d  europe-west1  UP
+europe-west1-c  europe-west1  UP
+
+</code></pre>
+
+<p>Adding an additional zone requires us to update the cluster configuration.</p>
+
+<p>The following example <em>adds</em> the <code>europe-west1-c</code> zone to the cluster.</p>
+
+<pre><code class="language-bash">$ gcloud container clusters update --node-locations europe-west1-b,europe-west1-c &lt;cluster-name&gt;
+</code></pre>
+
+<p><strong>NOTE: the primary zone is required in this list</strong>
+(in this case, <code>europe-west1-b</code>).</p>
+
+<p><strong>NOTE: this will cause a limited period of control plane (master) downtime.</strong>
+The cluster <em>nodes</em> in the existing zone will be unaffected during this process.</p>
+
+<p>There will now be <code>--num-nodes</code> new nodes in the new zone(s).
+You can see this by printing the <code>failure-domain.beta.kubernetes.io/zone</code> node label as a column:</p>
+
+<pre><code class="language-bash">$ kubectl get nodes --label-columns failure-domain.beta.kubernetes.io/region,failure-domain.beta.kubernetes.io/zone
+NAME                                  STATUS    ROLES     AGE       VERSION        REGION         ZONE
+gke-demo-default-pool-b5390259-bg2x   Ready     &lt;none&gt;    54s       v1.11          europe-west1   europe-west1-b
+gke-demo-default-pool-b5390259-c2rl   Ready     &lt;none&gt;    54s       v1.11          europe-west1   europe-west1-b
+gke-demo-default-pool-db4bfeb5-qrs2   Ready     &lt;none&gt;    28m       v1.11          europe-west1   europe-west1-c
+gke-demo-default-pool-db4bfeb5-w0qk   Ready     &lt;none&gt;    28m       v1.11          europe-west1   europe-west1-c
+</code></pre>
+
+<p>We now have 2 new nodes in the new zone.
+But if you list the carts pods again, you will see that there are still multiple pods on the original nodes in the original zone:</p>
+
+<pre><code class="language-bash">kubectl -n sock-shop get pods -l name=carts -o wide
+NAME                     READY     STATUS    RESTARTS   AGE       IP          NODE
+carts-57b6f6cc48-fvpw9   1/1       Running   0          22m       10.0.1.15   gke-demo-default-pool-db4bfeb5-qrs2
+carts-57b6f6cc48-htsj7   1/1       Running   0          22m       10.0.0.16   gke-demo-default-pool-db4bfeb5-w0qk
+carts-57b6f6cc48-m4p4v   1/1       Running   0          22m       10.0.0.15   gke-demo-default-pool-db4bfeb5-w0qk
+carts-57b6f6cc48-z92cq   1/1       Running   0          27m       10.0.1.6    gke-demo-default-pool-db4bfeb5-qrs2
+</code></pre>
+
+<p>In the next step we&rsquo;ll modify the carts deployment to ensure that the carts pods are distributed across all the available nodes.</p>
+
+<h3 id="step-3-inter-pod-anti-affinity">step 3 - inter-pod anti-affinity</h3>
+
+<p>In this step, we will add <code>podAntiAffinity</code> rules in order to achieve the following one <code>carts</code> pod per node</p>
+
+<p>Add the following <code>podAntiAffinity</code> to an <code>affinity</code> stanza in the <code>carts</code> <code>Deployment</code> manifest</p>
+
+<pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+...
+spec:
+  ...
+  template:
+    ...
+    spec:
+      ...
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: name
+                  operator: In
+                  values:
+                  - carts
+              topologyKey: kubernetes.io/hostname
+</code></pre>
+
+<p>(see <code>attendee-resources/workshop-04/carts-dep-affinity.yaml</code> for this updated <code>Deployment</code>).</p>
+
+<p><strong>NOTE: this new block lives under the template Pod spec</strong>,
+not the deployment spec (affinity is a function of Pods).</p>
+
+<p>Now apply the manifest:</p>
+
+<pre><code>$ kubectl apply -f attendee-resources/workshop-04/carts-dep-affinity.yaml
+</code></pre>
+
+<p>This will trigger a rolling update of the &ldquo;carts&rdquo; deployment.</p>
+
+<p>Take another look at the pod list:</p>
+
+<pre><code class="language-bash">$ kubectl -n sock-shop get pods -l name=carts -o wide
+NAME                     READY     STATUS        RESTARTS   AGE       IP          NODE
+carts-57b6f6cc48-fgpch   1/1       Running       0          6s        10.0.2.8    gke-demo-default-pool-b5390259-c2rl
+carts-57b6f6cc48-qzpfd   1/1       Running       0          5s        10.0.2.9    gke-demo-default-pool-b5390259-c2rl
+carts-57b6f6cc48-r556d   1/1       Running       0          3s        10.0.3.9    gke-demo-default-pool-b5390259-bg2x
+carts-57b6f6cc48-w24wz   1/1       Running       0          6s        10.0.3.8    gke-demo-default-pool-b5390259-bg2x
+carts-859666f997-nmlvg   1/1       Terminating   0          1m        10.0.2.7    gke-demo-default-pool-b5390259-c2rl
+carts-859666f997-pdgss   1/1       Terminating   0          1m        10.0.3.7    gke-demo-default-pool-b5390259-bg2x
+carts-859666f997-qzn9z   1/1       Terminating   0          1m        10.0.0.17   gke-demo-default-pool-db4bfeb5-w0qk
+carts-859666f997-x878c   1/1       Terminating   0          1m        10.0.1.16   gke-demo-default-pool-db4bfeb5-qrs2
+</code></pre>
+
+<p>You should see the old pods with status <code>Terminating</code> and new pods with status <code>Running</code> or <code>ContainerCreating</code>
+and the new pods should be running on the two new nodes that we added earlier.</p>
+
+<p>As a final exercise, try removing the <code>affinity</code> stanza and re-applying the carts deployment.
+You will probably notice that the carts pods are <em>all</em> moved to the two new nodes.
+Can you explain why?</p>
+
+<h3 id="step-4-create-a-node-pool-of-high-spec-instances-and-limit-their-use">step 4 - create a node pool of high-spec instances and limit their use</h3>
+
+<p>Next, we will create a small node pool (1 node per zone) of high-specification instances. These instances should be protected so that pods cannot be scheduled onto them without permission (e.g. imagine this as a pool of instances for a particular flavour of application or instances with specialist hardware).</p>
+
+<p><strong>WARNING: The following command may produce an error depending on your project&rsquo;s quotas.</strong>
+Please read the note at the beginning of this exercise for more information about project quotas.</p>
+
+<pre><code class="language-bash">$ gcloud container node-pools create high-spec --machine-type=n1-highcpu-2 --preemptible --num-nodes=1 --cluster=&lt;cluster-name&gt;
+</code></pre>
+
+<p><strong>NOTE: Use the <code>--preemptible</code> flag to save money</strong>
+This will provision significantly lower cost <a href="https://cloud.google.com/preemptible-vms/">preemptible</a> VMs with up to 24 hour lifetime, ideal for testing)</p>
+
+<p>In order to protect these new high spec nodes from general scheduling, we will use Kubernetes <a href="https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#taints-and-tolerations-beta-feature">taints and tolerations</a>.</p>
+
+<p>First, we must &lsquo;taint&rsquo; the new nodes (replace <code>node1</code> and <code>node2</code> with real node names from <code>kubectl get nodes</code>):</p>
+
+<pre><code class="language-bash">$ kubectl taint nodes &lt;node1&gt; &lt;node2&gt; dedicated=highCpu:NoSchedule
+</code></pre>
+
+<p>Now no pod can be scheduled to these nodes unless a pod has a matching &lsquo;toleration&rsquo;. The pod in <code>attendee-resources/workshop-04/pod-toleration.yaml</code> has this toleration in its <code>spec</code>. However, while it <em>might</em> schedule onto one of the <code>highCpu</code> nodes, there&rsquo;s nothing to say it <em>will</em>. So, we&rsquo;ll also add an affinity for those nodes to <em>ensure</em> our Pod ends up there. Alas, taints aren&rsquo;t considered as labels, so we can&rsquo;t match a node based on that for affinity purposes. Thus we&rsquo;ll also add a label to the nodes to be able to identify them.</p>
+
+<pre><code class="language-bash">$ kubectl label nodes &lt;node1&gt; &lt;node2&gt; dedicated=highCpu
+</code></pre>
+
+<p>Now deploy the Pod. If you look in the file, you&rsquo;ll see both the toleration and affinity setting.</p>
+
+<pre><code class="language-bash">$ kubectl apply -f attendee-resources/workshop-04/pod-toleration.yaml
+$ kubectl get pod -l name=my-example-pod -o wide
+</code></pre>
+
+<p>The latter command should verify that the pod has scheduled to a &lsquo;highCpu&rsquo; dedicated node (i.e. <code>node1</code> or <code>node2</code>).</p>
+
+<h3 id="step-5-delete-the-node-pool">step 5 - delete the node pool</h3>
+
+<p>To finish, make sure you clean-up and remove the additional node pool.</p>
+
+<pre><code class="language-bash">$ gcloud container node-pools delete high-spec --cluster=&lt;cluster-name&gt;
+</code></pre>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>

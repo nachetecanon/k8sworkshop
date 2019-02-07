@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | A) Install</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+
+
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>01. Setup</h1>
+            <h2>A) Install</h2>
+            <hr />
+            <h4 style="color:#666;">get your laptop setup with the required development tools</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>In this exercise, we will:</p>
+
+<ul>
+<li>check Docker installation</li>
+<li>register a GCP account</li>
+<li>get credits for our GCP account</li>
+<li>install gcloud CLI</li>
+<li>install kubectl</li>
+<li>authenticate the gcloud CLI</li>
+<li>create GCP project</li>
+</ul>
+
+<h3 id="step-1-check-docker-installation">step 1 - check Docker installation</h3>
+
+<p>Once you have installed Docker you should be able to run the <a href="https://docs.docker.com/engine/reference/commandline/info/"><code>docker ps</code></a> command and see the output:</p>
+
+<pre><code class="language-bash">$ docker ps -a
+CONTAINER ID    IMAGE     COMMAND         CREATED        STATUS          PORTS            NAMES
+</code></pre>
+
+<p>Make sure the version of Docker is at least 1.12 or more:</p>
+
+<pre><code class="language-bash">$ docker version
+Client:
+ Version:      1.13.0
+ API version:  1.25
+ Go version:   go1.7.3
+ Git commit:   49bf474
+ Built:        Wed Jan 18 16:20:26 2017
+ OS/Arch:      darwin/amd64
+
+Server:
+ Version:      1.13.0
+ API version:  1.25 (minimum version 1.12)
+ Go version:   go1.7.3
+ Git commit:   49bf474
+ Built:        Wed Jan 18 16:20:26 2017
+ OS/Arch:      linux/amd64
+ Experimental: true
+</code></pre>
+
+<p>You can see system-wide information about your Docker installation using the <a href="https://docs.docker.com/engine/reference/commandline/info/"><code>docker info</code></a> command.</p>
+
+<h3 id="step-2-log-into-your-gcp-account-and-apply-for-credits">step 2 - log into your GCP account and apply for credits</h3>
+
+<p>We need access to the <a href="https://console.cloud.google.com">Google Cloud Console</a>, so ensure you are logged in to your Google account (i.e. Gmail, GSuite) or register for a new account.</p>
+
+<p>If you are new to <a href="https://cloud.google.com">Google Cloud</a> you can claim $300 of <a href="https://cloud.google.com/free/">free credit</a> and this lasts up to 12 months.</p>
+
+<p>To use the credit, you will have to set-up a <a href="https://console.cloud.google.com/billing">billing account</a> and enter some credit card details. Using this method means you get to keep your cluster after the workshops have finished - but don&rsquo;t forget about it!</p>
+
+<p><strong>NOTE: If you can not set up a new Google account or if you have already used your free credits, please speak to the workshop leader or to one of the workshop assistants.</strong>
+They may be able to grant you temporary access to a GCP project which you can use for the duration of the workshop.</p>
+
+<h3 id="step-3-create-a-project">step 3 - create a project</h3>
+
+<p>We recommend that you create a new &ldquo;project&rdquo; for this workshop.
+This avoids the risk of interfering with existing GCP resources,
+and it will make it easier to clean up all the compute and network resources when you finish.</p>
+
+<p>Visit the <a href="https://console.cloud.google.com/cloud-resource-manager">Manage resources</a> page and create a new &ldquo;project&rdquo; to use for this workshop and link the project to your billing account.</p>
+
+<p><strong>NOTE: You must enable &ldquo;billing&rdquo; for your new project.</strong>
+Otherwise <code>gcloud</code> commands will fail when they attempt to make calls to non-free APIs such as the Compute Engine and Kubernetes Engine APIs.
+Go to the <a href="https://console.cloud.google.com/cloud-resource-manager">Manage resources</a> page and click the <code>billing</code> link next to your newly created project.</p>
+
+<h3 id="step-4-install-gcloud-cli">step 4 - install gcloud CLI</h3>
+
+<p>Download and install the <a href="https://cloud.google.com/sdk/">GCP Cloud SDK</a>.</p>
+
+<p>You can check whether it is installed by typing:</p>
+
+<pre><code class="language-bash">$ gcloud version
+
+Google Cloud SDK 201.0.0
+...
+</code></pre>
+
+<p>If it is already installed, then make sure that it is up to date:</p>
+
+<pre><code>$ gcloud components update
+
+All components are up to date.
+</code></pre>
+
+<h3 id="step-5-initialize-gcloud">step 5 - initialize gcloud</h3>
+
+<p><code>gcloud init</code> is the simplest way to configure <code>gcloud</code> for this workshop.
+It is an interactive command which will prompt you for: login details, default project, and default compute region / zone.</p>
+
+<pre><code class="language-bash">$ gcloud init
+</code></pre>
+
+<p>You can re-run this command at any time to choose different default settings.</p>
+
+<p><strong>NOTE: Choose a zone from <code>europe-west1-{b,c,d}</code></strong>.
+Some Kubernetes features may not be available in other regions / zones.</p>
+
+<p><strong>NOTE: The default settings are important</strong>.
+Setting a default zone and project here will allow you to omit the <code>--project</code> and <code>--zone</code> arguments when you run <code>gcloud</code> commands in later workshops.
+Read <a href="https://cloud.google.com/compute/docs/regions-zones/changing-default-zone-region#how_a_default_region_and_zone_affects_your_project">How a default region and zone affects your project</a> for more information.</p>
+
+<p><strong>NOTE: If you applied for free GCP credits (in the step above), log in with that Google account.</strong></p>
+
+<h3 id="step-6-install-kubectl">step 6 - install kubectl</h3>
+
+<p>Make sure you have installed <a href="https://kubernetes.io/docs/user-guide/prereqs/">kubectl</a></p>
+
+<pre><code class="language-bash">$ gcloud components install kubectl
+</code></pre>
+
+<h3 id="step-7-enable-the-compute-and-kubernetes-engine-apis">step 7 - Enable the Compute and Kubernetes Engine APIs</h3>
+
+<p>You will need the following APIs enabled for your project:</p>
+
+<ol>
+<li>Compute Engine API</li>
+<li>Kubernetes Engine API</li>
+</ol>
+
+<p>Go to the <a href="https://console.cloud.google.com/apis/library">GCP API library</a> and enable those APIs.</p>
+
+<p><strong>Note:</strong> Some gcloud commands may require other APIs to be enabled and in this case the command may fail with a descriptive error message.
+The required API will be described in the error message,
+and the message will usually contain a link to a web page which you need to visit to fix the problem.
+Here&rsquo;s an example of such a message:</p>
+
+<pre><code>gcloud container clusters create --cluster-version=1.11 example-cluster1
+...
+ERROR: (gcloud.container.clusters.create) ResponseError: code=403, message=The Kubernetes Engine API is not enabled for project kube-workshop1. Please ensure it is enabled in the Google Cloud Console at https://console.cloud.google.com/apis/api/container.googleapis.com/overview?project=kube-workshop1 and try again.
+</code></pre>
+
+<p>In this case you should click on the link and enable the Kubernetes Engine API from your web browser.</p>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>

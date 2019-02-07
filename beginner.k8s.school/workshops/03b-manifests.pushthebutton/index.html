@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | B) Push the button</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>03. Manifests</h1>
+            <h2>B) Push the button</h2>
+            <hr />
+            <h4 style="color:#666;">Deploy the pods and services to the cluster</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>In this exercise, we will deploy the entire sock shop stack to our cluster using pod manifests.</p>
+
+<p>Note that the sock shop example provided is a proof of concept training demo, and should not
+necessarily be emulated in a production environment. During today&rsquo;s workshops we&rsquo;ll be looking
+at the sock shop&rsquo;s configuration and outlining ways that it can be improved.</p>
+
+<h3 id="step-1-remove-front-end-pod">step 1 - remove front end pod</h3>
+
+<p>First lets see what we have running from the last workshop and clear it up:</p>
+
+<pre><code>$ kubectl get po # po is short for pods and can be used in its place
+$ kubectl delete po front-end
+</code></pre>
+
+<h3 id="step-2-deploy-all-pods-and-services">step 2 - deploy all pods and services</h3>
+
+<p>There is a directory of manifests that describe the whole stack living inside <code>attendee-resources/workshop-03b</code>.</p>
+
+<p>Open some files in this directory and notice how they are essentially the same as
+our front-end pod but with minor alterations depending on what service it is.</p>
+
+<p>We are going to deploy all pod and service manifests in this directory at once.</p>
+
+<p><strong>Make sure you are in the correct directory:</strong></p>
+
+<pre><code>$ cd /path/to/attendee-resources
+$ ls -l attendee-resources/workshop-03b
+-rw-r--r--  1 dot dot  505 Jan 15 19:28 carts-db-pod.yaml
+-rw-r--r--  1 dot dot  219 Jan 15 19:48 carts-db-svc.yaml
+-rw-r--r--  1 dot dot  517 Jan 15 19:29 carts-pod.yaml
+-rw-r--r--  1 dot dot  257 Jan 15 19:49 carts-svc.yaml
+-rw-r--r--  1 dot dot  361 Jan 15 19:30 catalogue-db-pod.yaml
+...
+</code></pre>
+
+<p>Now we can use kubectl apply to submit these resources to Kubernetes:</p>
+
+<pre><code>$ kubectl apply -f attendee-resources/workshop-03b
+</code></pre>
+
+<p><em>(-f is shorthand for <code>--filename</code> - and it can also be used on directories as
+we do here)</em></p>
+
+<p>The API server should acknowledge the creation of these pod and service
+resources and you&rsquo;ll in the output that the different resources are configured.</p>
+
+<p><strong>Confirm our services are registered:</strong></p>
+
+<pre><code>$ kubectl get svc # svc is short for services
+</code></pre>
+
+<p>Now, we want to keep an eye on these pods as the images are pulled and the containers are started.</p>
+
+<p><strong>Watch pod status</strong></p>
+
+<pre><code>$ watch kubectl get po
+</code></pre>
+
+<p>Wait for all pods to be in a <code>Running</code> state. When they&rsquo;re all running we&rsquo;re
+ready to continue. Kubernetes has achieved the desired state.</p>
+
+<h3 id="step-3-use-port-forward-to-connect">step 3 - use port-forward to connect</h3>
+
+<p>Now it&rsquo;s time to load up our site in a browser. We need an easy way to connect
+the browser on our laptop to the front-end pod running inside the cluster.</p>
+
+<p><strong>Open a port using the <code>port-forward</code> command on kubectl:</strong></p>
+
+<pre><code>$ kubectl port-forward front-end 8079
+</code></pre>
+
+<p>Now you should be able to open the URL
+<a href="http://127.0.0.1:8079">http://127.0.0.1:8079</a> in your browser and see the sock
+shop running in all its glory.</p>
+
+<p>Notice how when you kill the <code>port-forward</code> command - you can no longer access
+the site.</p>
+
+<p>Our frontend pod is using the in-cluster DNS to communicate with the other pods
+via their service names.</p>
+
+<h3 id="step-3-delete-the-front-end-pod">step 3 - delete the front end pod</h3>
+
+<p>Ensure that the port-forward command is running, and open a new terminal window.</p>
+
+<p>In this new terminal window, run the following command, which should return
+the sock shop&rsquo;s HTML:</p>
+
+<pre><code>curl -s http://localhost:8079
+</code></pre>
+
+<p>In the terminal window where <code>port-forward</code> is running you should see the message
+<code>Handling connection for 8079</code>. Running the <code>curl</code> command again will continue to
+return the HTML.</p>
+
+<p>Delete the <code>front-end.yaml</code> pod:</p>
+
+<pre><code>$ kubectl delete -f attendee-resources/workshop-03b/front-end.yaml
+</code></pre>
+
+<p>Continue to run the <code>curl</code> command, and within 60 seconds, you should see an error
+message stating <code>container not running</code>.</p>
+
+<p>Kill the <code>port-forward</code> command and recreate the <code>front-end.yaml</code> pod using the
+<code>kubectl apply</code> command. Running the <code>curl</code> command will again return the sock
+shop&rsquo;s HTML.</p>
+
+<p>Note that when a node dies, the pods on that node are lost to us and are not
+rescheduled, in case the node suddenly comes back, e.g. the node just lost
+connection momentarily.</p>
+
+<p>When we ask Kubernetes to delete a resource, it doesn&rsquo;t get auto-healed.
+By running <code>kubectl delete</code> we have modified the desired state of the cluster,
+and Kubernetes has taken steps to ensure (eventually) that the actual state matches
+the desired state.</p>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>

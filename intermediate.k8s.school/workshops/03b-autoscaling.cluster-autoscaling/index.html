@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | B) Cluster autoscaling</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+
+
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>03. Autoscaling</h1>
+            <h2>B) Cluster autoscaling</h2>
+            <hr />
+            <h4 style="color:#666;">Ensure your cluster always has space to schedule new pods</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>So far, we&rsquo;ve seen how to configure autoscaling for a single application within our cluster. This works great if we want to respond to user demand and we have spare capacity to run extra pods, however we don&rsquo;t always want to run a surplus. With the <a href="https://github.com/kubernetes/autoscaler/tree/master/cluster-autoscaler">cluster-autoscaler</a>, we can automatically scale up our Kubernetes cluster if there is not enough room to schedule new pods.</p>
+
+<p>This will allow us to set extremely high limits on our HPAs, without having to reserve capacity to deal with load spikes.</p>
+
+<h2 id="step-one-set-up-cluster-autoscaler">Step one - set up cluster-autoscaler</h2>
+
+<p>As we are running on GKE, we can simply &lsquo;enable&rsquo; the cluster autoscaler via <code>gcloud</code>. If we were running this outside of GKE, or wanted tighter control of the autoscaler, we could choose to manually deploy the cluster-autoscaler.</p>
+
+<pre><code>$ gcloud container clusters update &lt;cluster-name&gt; --enable-autoscaling --min-nodes=3 --max-nodes=7 --node-pool=default-pool
+</code></pre>
+
+<p>This enables autoscaling between 3 and 7 nodes on our default node pool. Whilst this is executing, the master will become unavailable for a few minutes whilst it&rsquo;s restarted. This is because the cluster-autoscaler components runs on the master node when using GKE.</p>
+
+<h2 id="step-two-trigger-a-scale-create-some-extra-pods">Step two - trigger a scale, create some extra pods</h2>
+
+<p>In order to test the cluster autoscaler, we&rsquo;re going to scale up one of our Sock Shop components so much that we exhaust the spare capacity in the cluster.</p>
+
+<p>Edit the Deployment for the <code>catalogue</code> using <code>kubectl edit</code> to add a request for <code>100m</code> of CPU and increase the replica count to 30.</p>
+
+<pre><code>...
+spec:
+  replicas: 30
+  template:
+    ...
+    spec:
+      containers:
+      - name: catalogue
+        ...
+        resources:
+          requests:
+            cpu: 100m
+...
+</code></pre>
+
+<p>We should see some new pods being created, some of which will be scheduled (<code>ContainerCreating</code>), and the others stuck in a <code>Pending</code> state.</p>
+
+<p>Check out the current pods (using <code>get pods</code>), and make sure at least one of them is failing to schedule due to insufficient CPU/memory. You can then monitor the nodes in the cluster with: <code>watch kubectl get nodes</code>. You should eventually see a new node entry in this list (noticeable by it&rsquo;s Age being far newer than any other nodes).</p>
+
+<p>Eventually (usually within 5 minutes), the previously Pending pod should be scheduled onto this new node!</p>
+
+<h2 id="step-three-scale-down">Step three - scale down</h2>
+
+<p>Using <code>kubectl edit</code> again, we can scale the <code>catalogue</code> Deployment down again.</p>
+
+<p>It may take 10-15 minutes, but you should eventually see the new nodes that were just brought online be shut down. This delay is to prevent the cluster rapidly changing size up and down if the load spikes are only short.</p>
+
+<h2 id="step-four-clean-up">Step four - clean up</h2>
+
+<pre><code>$ gcloud container clusters update &lt;cluster-name&gt; --no-enable-autoscaling --node-pool=default-pool
+</code></pre>
+
+<p>If you find that there are still autoscaled nodes hanging around, you might
+want force it back down to the three nodes you started with too:</p>
+
+<pre><code>gcloud container clusters resize &lt;cluster-name&gt; --size=3
+</code></pre>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>

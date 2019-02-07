@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta name="generator" content="Hugo 0.27" />
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack</title>
+
+    
+    <link href="lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="css/main.css" rel="stylesheet"/>
+    
+    <link href="css/home.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+<div class="container" id="header">
+    
+    <nav class="navbar transparent atop">
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar1"
+                aria-expanded="false" aria-controls="navbar1">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="index.html">
+          <img src="img/png/logo-white.png"/>
+        </a>
+    </div>
+    <div id="navbar1" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="k8s.zip">Download manifests</a>
+            </li>
+
+            
+
+  <li>
+    <a href="workshops/index.html">
+      Workshops
+    </a>
+  </li>
+
+        </ul>
+    </div>
+</div>
+
+    </nav>
+    
+    <nav class="navbar navbar-fixed-top above" id="dynamic-nav">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar2"
+                aria-expanded="false" aria-controls="navbar2">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="index.html">
+          <img src="img/png/logo-white.png"/>
+        </a>
+    </div>
+    <div id="navbar2" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="k8s.zip">Download manifests</a>
+            </li>
+
+            
+
+  <li>
+    <a href="workshops/index.html">
+      Workshops
+    </a>
+  </li>
+
+        </ul>
+    </div>
+</div>
+
+    </nav>
+</div>
+
+
+<div class="container-fluid" id="lead-image">
+    <div class="video"></div>
+    <div class="overlay"></div>
+
+    <div class="container">
+    <div class="masthead text-light">
+        <h1>Kubernetes in Practice</h1>
+        <p style="width:500px;" class="text-light">A Workshop by Jetstack</p>
+    </div>
+</div>
+
+
+</div>
+
+
+
+<div></div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="lib/bootstrap/js/bootstrap.min.js"></script>
+
+<script src="lib/vide/jquery.vide.min.js"></script>
+<script src="js/home.js"></script>
+
+<script src="js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | A) Conan the destroyer</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>06. Storage</h1>
+            <h2>A) Conan the destroyer</h2>
+            <hr />
+            <h4 style="color:#666;">Destroy the database pod</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>In the exercise (of destruction) we will delete the cart database pod, watch our data go away and then feel bad.</p>
+
+<h3 id="step-1-create-some-state">step 1 - create some state</h3>
+
+<p>We first need to create an account and add some socks to our cart.  We should have our whole stack running - we just need to get a browser connection.</p>
+
+<pre><code class="language-bash">$ kubectl -n=sock-shop get svc
+</code></pre>
+
+<p>Grab the <code>EXTERNAL-IP</code> field of the <code>front-end</code> service and open your browser to that address.</p>
+
+<p>Register an account and then add a collection of socks to your cart (don&rsquo;t go mad, we will delete this in a moment).</p>
+
+<p>Logout and log back in to confirm the cart data is still there.</p>
+
+<h3 id="step-2-delete-the-carts-db-pod">step 2 - delete the carts-db pod</h3>
+
+<p>Let&rsquo;s list the pods we have running so we can grab the id for the carts-db pod:</p>
+
+<pre><code class="language-bash">$ kubectl -n=sock-shop get po | grep carts-db
+</code></pre>
+
+<p>Get the pod name for the carts-db pod and then let&rsquo;s delete it:</p>
+
+<pre><code class="language-bash">$ kubectl -n=sock-shop delete po &lt;carts-db-pod-name&gt;
+</code></pre>
+
+<h3 id="step-3-watch-the-pod-re-deploy">step 3 - watch the pod re-deploy</h3>
+
+<p>Because the carts-db is part of a deployment, the moment we delete a pod, the deployment will kick in and immediately re-schedule another one.</p>
+
+<pre><code class="language-bash">$ watch kubectl -n=sock-shop get po
+</code></pre>
+
+<h3 id="step-4-check-the-data-is-gone">step 4 - check the data is gone</h3>
+
+<p>Visit the site in the browser again and notice that when you login, the cart data has gone.</p>
+
+<h3 id="step-5-creating-persistent-data">step 5 - creating persistent data</h3>
+
+<p>When Kubernetes was first released, it only supported stateless applications. Although support for stateful applications was introduced from Kubernetes 1.5, the perception that Kubernetes doesn&rsquo;t handle state has stuck around in some quarters.</p>
+
+<p>Kubernetes <strong>does</strong> now support stateful applications (if you know what you&rsquo;re doing!), and achieves this through a few primitives such as <code>StatefulSet</code>, <code>PersistentVolume</code> and <code>PersistentVolumeClaim</code>. These abstractions are covered in further detail in our Intermediate workshops, but for now it&rsquo;s enough to know that Kubernetes is capable of supporting stateful workloads, which would allow the cart data in this example to persist even if the pod is terminated.</p>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>

@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | Auto Push</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+
+
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>07. CI/CD</h1>
+            <h2>Auto Push</h2>
+            <hr />
+            <h4 style="color:#666;">Setup continuous integration and deployment to Kubernetes with GitLab</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>In this workshop, we&rsquo;re going to deploy an instance of <a href="https://gitlab.com/">GitLab</a>,
+a version control system that integrates Continuous Integration (CI)
+and Continuous Deployment (CD).</p>
+
+<p>To save the complication and difficulty of deploying GitLab manually,
+we&rsquo;re going to use a <a href="https://github.com/kubernetes/helm">Helm</a> chart to
+do the heavy-lifting. We&rsquo;ll then set up a continuous integration runner that
+will run our CI jobs on our Kubernetes cluster.</p>
+
+<p>Finally, we&rsquo;ll go on to write a simple CI job that will test, build and deploy
+our application onto Kubernetes!</p>
+
+<h2 id="before-you-begin">Before You Begin</h2>
+
+<p>Perform the following tasks before starting the exercise.
+Skip any tasks that you have already completed in previous workshops.</p>
+
+<h3 id="install-and-initialise-helm">Install and Initialise Helm</h3>
+
+
+
+<p>You can grab the latest release from the <a href="https://github.com/kubernetes/helm/releases">official repository</a>, for Windows, OS X or Linux.</p>
+
+<p>Alternatively, OS X users can install with <code>brew install kubernetes-helm</code>.</p>
+
+<p>Read <a href="https://docs.helm.sh/using_helm/#installing-helm">Installing Helm</a> for more details.</p>
+
+
+
+
+
+<p>In order to use Helm, a server side component, Tiller, must be installed in your cluster.
+And if the cluster has RBAC enabled we must first <a href="https://docs.helm.sh/using_helm/#tiller-and-role-based-access-control">create a dedicated service account and RBAC role bindings</a> for Tiller:</p>
+
+<pre><code class="language-bash">$ kubectl create serviceaccount tiller --namespace kube-system
+$ kubectl create clusterrolebinding tiller --clusterrole=cluster-admin --serviceaccount=kube-system:tiller
+</code></pre>
+
+<pre><code class="language-bash">$ helm init --service-account tiller
+$ helm repo update
+</code></pre>
+
+<p>This will update the default Helm chart repositories locally, and install Tiller in the <code>kube-system</code> namespace of your cluster, using the dedicated <code>tiller</code> service account.</p>
+
+<p><strong>NOTE: This helm installation method is not suitable for use on production clusters.</strong>
+See <a href="https://docs.helm.sh/using_helm/#securing-your-helm-installation">Securing your Helm Installation</a> for more information.</p>
+
+
+
+<h2 id="exercise-installing-gitlab-ce">Exercise: Installing GitLab CE</h2>
+
+<p>We can now use the official and pre-packaged GitLab CE
+chart to get ourselves up and running with GitLab easily. You can check out the contents of the chart on
+<a href="https://github.com/kubernetes/charts/tree/master/stable/gitlab-ce">GitHub</a>.</p>
+
+<p>As part of GitLab&rsquo;s deployment, we need to know the URL GitLab should be accessible. If we don&rsquo;t specify
+this information, GitLab will not create the web server component (and so GitLab will not be available).</p>
+
+<p>What it will create however, is a <code>Service</code> with type <code>LoadBalancer</code>. Once this service has been created, we&rsquo;ll be able
+to use the IP address that it creates as the URL to make GitLab accessible.</p>
+
+<p>This will require us to first deploy GitLab, and then once the IP has been allocated, upgrade the GitLab Helm release
+with this IP address set as the external URL:</p>
+
+<pre><code class="language-bash"># Deploy GitLab without the web-server so we can get an external IP allocated
+$ helm install --name gitlab --set gitlabRootPassword=password stable/gitlab-ce
+# Now we wait for the Service to have an IP address provisioned:
+$ watch kubectl get svc gitlab-gitlab-ce
+NAME                CLUSTER-IP      EXTERNAL-IP      PORT(S)                                   AGE
+gitlab-gitlab-ce    10.71.248.115   104.199.80.218   22:31663/TCP,80:32323/TCP,443:31253/TCP   3m
+# Now that we have an IP provisioned, we can upgrade our GitLab release
+$ helm upgrade gitlab --set externalUrl=http://&lt;gitlab-ce-ip-address&gt; stable/gitlab-ce
+</code></pre>
+
+<p>We now need to wait until the GitLab pod is in the &ldquo;Running&rdquo; state, and once it is, we should be able to visit our
+installation at the <code>externalUrl</code> specified above.</p>
+
+<pre><code class="language-bash"># Wait until the newly created GitLab pod is Running
+$ watch kubectl get pods
+# You can view the logs for your GitLab pod with `kubectl logs`
+</code></pre>
+
+<p>Once the pod is Running, log-in to your GitLab installation with the username &lsquo;root&rsquo; and password that
+you specified above. <em>Note</em> you will be prompted to create a new password.</p>
+
+<h2 id="setting-up-a-kubernetes-ci-runner">Setting up a Kubernetes CI runner</h2>
+
+<p>Great, we&rsquo;ve got GitLab running on our cluster and we can create projects - but we&rsquo;re missing CI!
+We can setup GitLab to run our CI jobs on Kubernetes itself, meaning CI can be configured to scale automatically.</p>
+
+<p>This involves running an instance of a GitLab &lsquo;Runner&rsquo; within your cluster. Luckily, there is a GitLab Runner that uses the <a href="https://docs.gitlab.com/runner/executors/kubernetes.html">Kubernetes executor</a>, ready-packaged as a <a href="https://docs.gitlab.com/ce/install/kubernetes/gitlab_runner_chart.html">Helm chart</a>.</p>
+
+<p>To install, you&rsquo;ll need the <code>runnerRegistrationToken</code> (found at the GitLab admin
+dashboard: <em>http://{gitlab IP address}/admin/runners</em>) and the <code>gitlabUrl</code> (as above).</p>
+
+<pre><code class="language-bash"># Install the Gitlab Runner using Helm
+$ helm repo add gitlab https://charts.gitlab.io &amp;&amp; helm repo update
+$ helm install \
+  --name gitlab-runner \
+  --set gitlabUrl=http://35.195.11.244 \
+  --set runnerRegistrationToken=LByxqiXEwKwmxTesdzF3 \
+  --set rbac.create=true \
+  --set runners.privileged=true \
+  --set runners.locked=true \
+  gitlab/gitlab-runner
+</code></pre>
+
+<p>You should see the GitLab Runner pod launched shortly:</p>
+
+<pre><code class="language-bash">$ kubectl get pods
+NAME                                 READY     STATUS      RESTARTS   AGE
+gitlab-gitlab-ce-1938116727-lt8bp    1/1       Running     0          19m
+gitlab-postgresql-1081988550-0wnst   1/1       Running     0          24m
+gitlab-redis-2621194854-1krt1        1/1       Running     0          24m
+gitlab-runner-1422277664-sm2r4       1/1       Running     0          3s
+</code></pre>
+
+<p>Now that our new Runner is running, you should be able to refresh the GitLab admin page to see the
+Runner successfully registered with GitLab.</p>
+
+<h2 id="creating-a-project-and-deploying-an-app">Creating a project and deploying an app</h2>
+
+<p>We&rsquo;re going to take he basic web server example from earlier and set it up to automatically
+deploy through GitLab. This will involve a few key steps:</p>
+
+<p>1) Creating a project on GitLab</p>
+
+<p>2) Pushing our existing code to that repository</p>
+
+<p>3) Create a .gitlab-ci.yml file to define how to build and push our application</p>
+
+<p>4) Create <code>Deployment</code> and <code>Service</code> manifests for the application</p>
+
+<p>5) Modify our .gitlab-ci.yml file to have it automatically deploy to Kubernetes</p>
+
+<h3 id="creating-a-project-on-gitlab">Creating a project on GitLab</h3>
+
+<p>First we need to create a new project on our GitLab instance. Go to the home page and click
+the &lsquo;New Project&rsquo; button. Give it a name, and your code to go.</p>
+
+<h3 id="pushing-our-existing-code-to-that-repository">Pushing our existing code to that repository</h3>
+
+<p>We then need to push our existing code to the newly created repo. This will involve creating
+a repository locally, adding our GitLab server as a remote, and pushing:</p>
+
+<pre><code class="language-bash"># cd into the directory containing our application
+$ cd attendee-resources/workshop-07
+# initialise an empty git repository
+$ git init
+# stage all the files in our folder
+$ git add .
+# create an initial commit
+$ git commit -m &quot;initial commit&quot;
+# add our gitlab server as a remote
+$ git remote add origin http://&lt;ip-of-gitlab-server&gt;/root/&lt;project-name&gt;
+# push our code to GitLab
+$ git push origin master
+</code></pre>
+
+<p>You should now be able to see your code on the GitLab instance!</p>
+
+<h3 id="creating-a-gitlab-ci-yml">Creating a .gitlab-ci.yml</h3>
+
+<p>So now we need to define how to build our application. This is described in a file named <code>.gitlab-ci.yml</code>
+in the root of your repository. Full documentation on the schema for this file can be found on
+<a href="https://docs.gitlab.com/ce/ci/yaml/">GitLab.com</a>.</p>
+
+<p>For now, here is a yaml configuration that will build the node application, package it into a Dockerfile and push
+the resulting image to Google Container Registry. Save this at the root of your repo in a file named
+<code>.gitlab-ci.yml</code>.</p>
+
+<pre><code class="language-yaml">stages:
+- docker-build
+
+Build:
+  image: docker:1.13
+  stage: docker-build
+  before_script:
+  - apk add --no-cache jq
+  # Login with the node's service account
+  - 'docker login
+      -u oauth2accesstoken
+      -p $(curl -H &quot;Metadata-Flavor: Google&quot; http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token | jq -M -r .access_token)
+      -e 123@123.com
+      https://gcr.io'
+  script:
+  # Build our docker image
+  - docker build -t gcr.io/&lt;gcp-project-name&gt;/basic-webserver:&quot;$CI_BUILD_REF&quot; .
+  # Tag our docker image as latest
+  - docker tag gcr.io/&lt;gcp-project-name&gt;/basic-webserver:&quot;$CI_BUILD_REF&quot; gcr.io/&lt;gcp-project-name&gt;/basic-webserver:latest
+  # Push both images to Google Container Registry
+  - docker push gcr.io/&lt;gcp-project-name&gt;/basic-webserver:&quot;$CI_BUILD_REF&quot;
+  - docker push gcr.io/&lt;gcp-project-name&gt;/basic-webserver:latest
+  variables:
+    DOCKER_HOST: 127.0.0.1:2375
+  only:
+  - master # only build and push an image on the master branch
+  services:
+  - docker:dind
+</code></pre>
+
+<p>We can then add, commit and push this to our repo:</p>
+
+<pre><code class="language-bash">$ git add .gitlab-ci.yml
+$ git commit -m &quot;Add initial CI config&quot;
+$ git push origin master
+</code></pre>
+
+<p>If you now go to your project and click on the &lsquo;Pipelines&rsquo; tab, you should be able to view your build running
+and monitor the log output of your build.</p>
+
+<p>Once this has passed, we should be able to pull a copy of the <code>basic-webserver</code> image locally and test it out, just like before!</p>
+
+<pre><code class="language-bash">$ docker pull gcr.io/&lt;gcp-project-name&gt;/basic-webserver:latest
+$ docker run \
+    -p 8080:80 \
+    -e HELLO=world \
+    gcr.io/&lt;gcp-project-name&gt;/basic-webserver:latest \
+        --hello=world2
+</code></pre>
+
+<h3 id="create-deployment-service-manifests-for-the-application">Create Deployment &amp; Service manifests for the application</h3>
+
+<p>So now that we&rsquo;ve got an image built and stored on Google Container Registry, we&rsquo;re going to need some manifests
+to deploy them to Kubernetes itself. For this particular application, a simple <code>Service</code> of type <code>LoadBalancer</code> and a <code>Deployment</code> manifest are required:</p>
+
+<pre><code class="language-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: basic-webserver
+  labels:
+    app: basic-webserver
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: basic-webserver
+  template:
+    metadata:
+      labels:
+        app: basic-webserver
+    spec:
+      containers:
+      - name: app
+        image: gcr.io/&lt;gcp-project-name&gt;/basic-webserver:{{IMAGE_TAG}}
+        ports:
+        - name: http
+          containerPort: 80
+        livenessProbe:
+          initialDelaySeconds: 10
+          httpGet:
+            path: /
+            port: 80
+        readinessProbe:
+          initialDelaySeconds: 10
+          httpGet:
+            path: /
+            port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: basic-webserver
+  labels:
+    app: basic-webserver
+spec:
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: basic-webserver
+</code></pre>
+
+<p>Fill in your image as appropriate in the <code>Deployment</code> manifest (replacing gcp-project-name with your
+Google Cloud project name - leaving {{IMAGE_TAG}} as it is).</p>
+
+<p>Now save this file in the root of your project in <code>manifest.yaml</code>, and we&rsquo;ll set up our <code>.gitlab-ci.yml</code>
+to automatically template in the <code>{{IMAGE_TAG}}</code> and deploy this manifest to our cluster!</p>
+
+<h3 id="modify-our-gitlab-ci-yml-file-to-have-it-automatically-deploy-to-kubernetes">Modify our .gitlab-ci.yml file to have it automatically deploy to Kubernetes</h3>
+
+<p>If we were to be deploying this manually, we&rsquo;d substitute <code>{{IMAGE_TAG}}</code> for <code>latest</code> and use <code>kubectl apply</code>
+or <code>create</code> - deploying via GitLab is very similar. We simply substitute <code>{{IMAGE_TAG}}</code> for the commit hash
+of the build using <code>sed</code>, and run <code>kubectl apply</code> to update the resource automatically in Kubernetes.</p>
+
+<p>We&rsquo;ll update the <code>.gitlab-ci.yml</code> file to look something like this:</p>
+
+<pre><code class="language-yaml">stages:
+- docker-build
+- deploy
+
+Build:
+  image: docker:1.13
+  stage: docker-build
+  before_script:
+  - apk add --no-cache jq
+  # Login with the node's service account
+  - 'docker login
+      -u oauth2accesstoken
+      -p $(curl -H &quot;Metadata-Flavor: Google&quot; http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token | jq -M -r .access_token)
+      -e 123@123.com
+      https://gcr.io'
+  script:
+  # Build our docker image
+  - docker build -t gcr.io/&lt;gcp-project-name&gt;/basic-webserver:&quot;$CI_BUILD_REF&quot; .
+  # Tag our docker image as latest
+  - docker tag gcr.io/&lt;gcp-project-name&gt;/basic-webserver:&quot;$CI_BUILD_REF&quot; gcr.io/&lt;gcp-project-name&gt;/basic-webserver:latest
+  # Push both images to Google Container Registry
+  - docker push gcr.io/&lt;gcp-project-name&gt;/basic-webserver:&quot;$CI_BUILD_REF&quot;
+  - docker push gcr.io/&lt;gcp-project-name&gt;/basic-webserver:latest
+  variables:
+    DOCKER_HOST: 127.0.0.1:2375
+  only:
+  - master # only build and push an image on the master branch
+  services:
+  - docker:dind
+
+Deploy:
+  image: google/cloud-sdk
+  stage: deploy
+  before_script:
+  - sed -e 's?{{IMAGE_TAG}}?'&quot;$CI_BUILD_REF&quot;'?g' --in-place manifest.yaml
+  script:
+  - kubectl apply -f ./manifest.yaml
+  only:
+  - master
+</code></pre>
+
+<p>Commit this code and watch your pipeline run - if all goes well, this will deploy the <code>basic-webserver</code> application to
+your Kubernetes cluster!</p>
+
+<p>Once the pipeline has completed, on your local machine run <code>watch kubectl get svc</code> and wait for your service to have
+an IP address, and once provisioned visit the URL to view the <code>basic-webserver</code> service running on the cluster.</p>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>

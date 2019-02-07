@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+    
+    <title>Jetstack | Deployments</title>
+
+    
+    <link href="../../lib/bootstrap/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="../../css/main.css" rel="stylesheet"/>
+    
+    <link href="../../css/insights.css" rel="stylesheet"/>
+
+
+    
+</head>
+<body>
+
+    
+<div class="container-fluid white" id="header">
+    <nav class="navbar navbar-fixed-top white">
+
+        
+
+
+
+
+<div class="container">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="../../index.html">
+          <img src="../../img/png/logo-black.png"/>
+        </a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+        <ul class="nav navbar-nav navbar-right">
+            <li>
+                <a href="../../k8s.zip">Download manifests</a>
+            </li>
+
+            
+
+  <li>
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </li>
+
+        </ul>
+    </div>
+</div>
+
+
+    </nav>
+</div>
+
+
+
+<div class="container-fluid" id="page-content">
+
+    <section class="white center" id="blog">
+        <div style="align-items: center; display: flex; justify-content: center;">
+          <div style="max-width: 800px;">
+            <h1>04. Deployments</h1>
+            <h2>Deployments</h2>
+            <hr />
+            <h4 style="color:#666;">Deploy the sock-shop in a declarative way</h4>
+            <hr />
+          </div>
+        </div>
+
+        <div class="blog-entry">
+            <div class="content">
+              
+
+<p>In this exercise, we will use declarative manifests to make
+<a href="https://kubernetes.io/docs/user-guide/deployments/">deployments</a> of the whole
+stack.</p>
+
+<p>Before starting it&rsquo;s best to delete the resources created in the previous workshop to avoid confusion when creating new resources of the same names. This can be done with:</p>
+
+<pre><code>kubectl delete -f attendee-resources/workshop-03b
+</code></pre>
+
+<h3 id="step-1-create-the-namespace">step 1 - create the namespace</h3>
+
+<p>To create the namespace we will use a declarative manifest.</p>
+
+<p>Open the <code>attendee-resources/workshop-04/00-sock-shop-ns.yaml</code> file:</p>
+
+<pre><code class="language-yaml">---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sock-shop
+</code></pre>
+
+<p>This is essentially the same as the <code>kubectl create ns sock-shop</code> imperative command.</p>
+
+<p>The difference is that this manifest file can live in source control (which is good).</p>
+
+<p><strong>Create the namespace using the manifest:</strong></p>
+
+<pre><code class="language-bash">$ kubectl apply -f attendee-resources/workshop-04/00-sock-shop-ns.yaml
+</code></pre>
+
+<h3 id="step-2-create-the-services">step 2 - create the services</h3>
+
+<p>Now we will use the service manifests to create the services in the same, declarative manner.</p>
+
+<p>Open an example service file from <code>attendee-resources/workshop-04/services</code>.</p>
+
+<p>Notice how the namespace field is set to <code>sock-shop</code>:</p>
+
+<pre><code class="language-yaml">namespace: sock-shop
+</code></pre>
+
+<p>Before we deploy any actual pods, lets stand up our services so that when they are running, they can talk to each other.</p>
+
+<p><strong>Use kubectl to create all the services in our <code>sock-shop</code> namespace:</strong></p>
+
+<pre><code class="language-bash">$ kubectl apply -f attendee-resources/workshop-04/services
+</code></pre>
+
+<p><strong>Check the services were created:</strong></p>
+
+<pre><code class="language-bash">$ kubectl -n=sock-shop get svc
+</code></pre>
+
+<p>Notice how if we use the default namespace, we cannot see our services:</p>
+
+<pre><code class="language-bash">$ kubectl get svc
+</code></pre>
+
+<h3 id="step-3-create-the-deployments">step 3 - create the deployments</h3>
+
+<p><strong>create deployments for the entire stack using <code>kubectl apply</code>:</strong></p>
+
+<pre><code class="language-bash">$ kubectl apply -f attendee-resources/workshop-04/deployments --record
+$ watch kubectl -n=sock-shop get deploy
+$ kubectl -n=sock-shop describe deployments
+</code></pre>
+
+<h3 id="step-4-view-the-site">step 4 - view the site</h3>
+
+<p>Because we have created the services, we can use the fact that the <code>front-end</code> service uses a load balancer to view our site using its IP address.</p>
+
+<p>First let&rsquo;s get the IP address for the load balancer:</p>
+
+<pre><code class="language-bash">$ kubectl -n=sock-shop get svc
+</code></pre>
+
+<p>Grab the <code>EXTERNAL-IP</code> field of the <code>front-end</code> service and open your browser to that address.</p>
+
+<p><strong>NOTE: the external IP may take a short while to appear</strong></p>
+
+<p>Try registering an account and adding some socks to your cart.</p>
+
+<h3 id="step-5-update-the-image">step 5 - update the image</h3>
+
+<p>We know the story, our designers want to make a change and although we know this is a bad idea, we suspend reality for a minute for the benefit of learning.</p>
+
+<p>This time, we will make the update to the manifest file in a declarative manner, by updating the <code>attendee-resources/workshop-04/deployments/front-end-dep.yaml</code> file.
+This is good because our change can then be committed to source control.</p>
+
+<p>Change the <code>image</code> field in the <code>attendee-resources/workshop-04/deployments/front-end-dep.yaml</code> file from <code>weaveworksdemos/front-end:0.3.12</code> to <code>gcr.io/jetstack-workshops/front-end:0.2.1</code>.</p>
+
+<p>Now use <code>kubectl apply</code> to send the updated manifest to the API server:</p>
+
+<pre><code class="language-bash">$ kubectl apply -f attendee-resources/workshop-04/deployments/front-end-dep.yaml --record
+</code></pre>
+
+<p>Check the deployment:</p>
+
+<pre><code class="language-bash">$ kubectl -n=sock-shop describe deploy front-end
+</code></pre>
+
+<h3 id="step-6-check-the-site">step 6 - check the site</h3>
+
+<p>Refresh your browser to see the faulty style change in the new image.</p>
+
+<h3 id="step-7-revert-the-change">step 7 - revert the change</h3>
+
+<p>Change the <code>image</code> field in the <code>attendee-resources/workshop-04/deployments/front-end-dep.yaml</code> file back to <code>weaveworksdemos/front-end:0.3.12</code>.</p>
+
+<p>Now re-apply the reverted deployment manifest:</p>
+
+<pre><code class="language-bash">$ kubectl apply -f attendee-resources/workshop-04/deployments/front-end-dep.yaml --record
+</code></pre>
+
+<p><strong>NOTE: In practice you might use <code>git</code> to revert to the previous version of the manifest file,</strong>
+and the change might be deployed as part of a continuous integration (CI) pipeline.
+You can learn more about CI and automated deployment at the &ldquo;Kubernetes in Practice - Intermediate&rdquo; workshop.
+Your workshop leader or one of the workshop assistants will be able to tell you more.</p>
+
+<h3 id="step-8-check-the-site">step 8 - check the site</h3>
+
+<p>Refresh your browser to see that the site has been restored to the original style.</p>
+
+            </div>
+        </div>
+    </section>
+
+    
+</div> 
+
+
+
+    
+
+
+<div id="footer">
+
+    <section class="blue tight main-footer">
+        <div class="container">
+            <div class="row">
+                <div class="item logo">
+                    <a href="../../index.html"><img src="../../img/png/logo-white.png"/></a>
+                </div>
+                <div class="item social" style="color:white;">
+                    
+  <a href="https://github.com/jetstack">
+      <img src="../../img/png/social-github-white.png"/>
+  </a>
+
+  <a href="https://hub.docker.com/u/jetstack/">
+      <img src="../../img/png/social-docker-white.png"/>
+  </a>
+
+  <a href="https://www.linkedin.com/company/jetstack">
+      <img src="../../img/png/social-linkedin-white.png"/>
+  </a>
+
+  <a href="https://twitter.com/jetstackhq">
+      <img src="../../img/png/social-twitter-white.png"/>
+  </a>
+
+                </div>
+            </div>
+            <div class="row footer-menu" style="color:white;">
+                
+
+  <div class="item">
+    <a href="../index.html" class="current">
+      Workshops
+    </a>
+  </div>
+
+            </div>
+            <div class="copyright">
+                <p>© 2017 Jetstack Ltd. All rights reserved.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="../../lib/bootstrap/js/bootstrap.min.js"></script>
+
+
+<script src="../../js/menu.js"></script>
+<script>
+    (function (d) {
+        var config = {
+                    kitId: 'lck0ocu',
+                    scriptTimeout: 3000,
+                    async: true
+                },
+                h = d.documentElement, t = setTimeout(function () {
+                    h.className = h.className.replace(/\bwf-loading\b/g, "") + " wf-inactive";
+                }, config.scriptTimeout), tk = d.createElement("script"), f = false, s = d.getElementsByTagName("script")[0], a;
+        h.className += " wf-loading";
+        tk.src = 'https://use.typekit.net/' + config.kitId + '.js';
+        tk.async = true;
+        tk.onload = tk.onreadystatechange = function () {
+            a = this.readyState;
+            if (f || a && a != "complete" && a != "loaded")return;
+            f = true;
+            clearTimeout(t);
+            try {
+                Typekit.load(config)
+            } catch (e) {
+            }
+        };
+        s.parentNode.insertBefore(tk, s)
+    })(document);
+</script>
+</body>
+</html>
