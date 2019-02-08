@@ -51,8 +51,7 @@ spec:
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
       dnsPolicy: ClusterFirst
-      nodeSelector:
-        app: goldengoose
+
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}
