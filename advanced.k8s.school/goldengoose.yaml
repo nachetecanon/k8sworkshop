@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: goldengoose
+  namespace: default
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8000
+  selector:
+    app: goldengoose
+    track: prod
+---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: goldengoose
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: goldengoose
+      track: prod
+  template:
+    metadata:
+      labels:
+        app: goldengoose
+        track: prod
+    spec:
+     # nodeSelector:
+     #   app: goldengoose
+      automountServiceAccountToken: false
+      containers:
+      - name: goldengoose
+        image: dippynark/goldengoose
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            cpu: 200m
+            memory: 200m
+        readinessProbe:
+          timeoutSeconds: 2
+          httpGet:
+            path: /
+            port: 8000
+        livenessProbe:
+          timeoutSeconds: 10
+          httpGet:
+            path: /
+            port: 8000
