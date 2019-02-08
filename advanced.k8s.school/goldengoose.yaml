@@ -13,7 +13,7 @@ spec:
     track: prod
 ---
 apiVersion: apps/v1
-kind: ReplicaSet
+kind: Deployment
 metadata:
   name: goldengoose
   namespace: default
@@ -29,18 +29,13 @@ spec:
         app: goldengoose
         track: prod
     spec:
-     # nodeSelector:
-     #   app: goldengoose
-      automountServiceAccountToken: false
+      nodeSelector:
+        app: goldengoose
       containers:
       - name: goldengoose
         image: dippynark/goldengoose
         ports:
         - containerPort: 8000
-        resources:
-          requests:
-            cpu: 200m
-            memory: 200m
         readinessProbe:
           timeoutSeconds: 2
           httpGet:
