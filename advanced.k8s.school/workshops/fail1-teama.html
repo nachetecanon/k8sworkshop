@@ -1,0 +1,32 @@
+<h1><a href='group-teama.html'>Group teama</a> / Scenario fail1</h1>
+<h2>Last minute notes</h2><ul>
+<li>Please make sure once more that you are using credentials for your own group
+<li>The nodes and master components are running 1.10
+<li>The production deployment is on the master: /opt/goldengoose.yaml
+</ul>
+<h2>How to use these files</h2><ul>
+<li>Download: <b>curl -f <i>URL</i> &gt;<i>filename</i></b><ul>
+  <li>-f: ensures you are not downloading an error message</li>
+  <li>chmod 600 <i>filename</i>: needed to make ssh happy
+</ul>
+<li>SSH into a VM: <b>ssh -F /dev/null -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -i <i>failX-Y.ssh</i> trainee@<i>IP</i></b><ul>
+  <li>-F /dev/null: skips loading your default config file</li>
+  <li>-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no: skips host key checking</li>
+  <li>-o IdentitiesOnly=yes: skips trying keys other than the one specified on the command line</li>
+</ul>
+<li>Connect with kubectl: <b>kubectl --kubeconfig=<i>failX-Y.conf</i> ...</b><ul>
+  <li>Optionally, you can use: export KUBECONFIG=<i>failX-Y.conf</i>
+  <li>On the master VM, the trainee account is already configured with admin credentials (/opt/admin.conf); the root is not
+</ul>
+</ul>
+<h2>List of VMs</h2>
+<pre>fail1-teama-master	34.76.170.134
+fail1-teama-slave-c2jz	35.241.164.146
+fail1-teama-slave-ckd6	35.241.187.174
+fail1-teama-slave-tqw8	35.190.208.173</pre>
+<h2>List of files</h2><ul>
+<li><a href='fail1-teama.conf'>fail1-teama.conf</a>
+<li><a href='fail1-teama.html'>fail1-teama.html</a>
+<li><a href='fail1-teama.ssh'>fail1-teama.ssh</a>
+<li><a href='fail1-teama.ssh.pub'>fail1-teama.ssh.pub</a>
+<li><a href='fail1-teama.vms.txt'>fail1-teama.vms.txt</a>

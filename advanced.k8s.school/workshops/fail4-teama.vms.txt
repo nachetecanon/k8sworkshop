@@ -1,0 +1,5 @@
+fail4-teama-etcd-3kp4	34.76.170.134
+fail4-teama-etcd-blhh	35.190.208.173
+fail4-teama-etcd-lv6n	34.76.17.82
+fail4-teama-master	35.187.164.247
+fail4-teama-slave-2bqf	35.240.96.137

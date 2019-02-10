@@ -1,0 +1,2 @@
+fail2-teama-master	34.76.169.99
+fail2-teama-slave-l7c4	34.76.143.177
